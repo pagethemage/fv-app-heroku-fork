@@ -1,160 +1,184 @@
 import React, { useEffect, useRef, useState } from "react";
-import ReactDOMServer from "react-dom/server";
+import { useAppContext } from "../contexts/AppContext";
 import { UserCircle, MapPin } from "lucide-react";
 
-const GeographicalView = ({ referees, venues, filters }) => {
+const GeographicalView = () => {
+    const { filteredReferees, venues, filters, updateFilters, applyFilters } =
+        useAppContext();
     const mapRef = useRef(null);
-    const googleMapRef = useRef(null);
-    const [filteredReferees, setFilteredReferees] = useState([]);
-    const [filteredVenues, setFilteredVenues] = useState([]);
-    const markersRef = useRef([]);
+    const [map, setMap] = useState(null);
 
     useEffect(() => {
-        const googleMapScript = document.createElement("script");
-        googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.GOOGLE_MAPS_API_KEY}&callback=initMap&v=beta`;
-        googleMapScript.async = true;
-        window.document.body.appendChild(googleMapScript);
+        if (!map) {
+            const googleMapScript = document.createElement("script");
+            googleMapScript.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&callback=initMap&v=beta`;
+            googleMapScript.async = true;
+            window.document.body.appendChild(googleMapScript);
 
-        window.initMap = initMap;
+            window.initMap = () => {
+                const newMap = new window.google.maps.Map(mapRef.current, {
+                    center: { lat: -37.8136, lng: 144.9631 },
+                    zoom: 10,
+                });
+                setMap(newMap);
+            };
 
-        return () => {
-            window.document.body.removeChild(googleMapScript);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (googleMapRef.current) {
-            applyFilters();
-            updateMarkers();
+            return () => {
+                window.document.body.removeChild(googleMapScript);
+            };
         }
-    }, [referees, venues, filters]);
+    }, [map]);
 
-    const initMap = () => {
-        googleMapRef.current = new window.google.maps.Map(mapRef.current, {
-            center: { lat: -37.8136, lng: 144.9631 },
-            zoom: 12,
-            mapId: "4f90136a1b865575",
-            disableDefaultUI: true,
-            zoomControl: true,
-            mapTypeControl: false,
-            scaleControl: true,
-            streetViewControl: false,
-            rotateControl: false,
-            fullscreenControl: false,
+    useEffect(() => {
+        if (map) {
+            // Clear existing markers
+            map.data.forEach((feature) => {
+                map.data.remove(feature);
+            });
+
+            // Add referee markers
+            filteredReferees.forEach((referee) => {
+                const marker = new window.google.maps.Marker({
+                    position: referee.location,
+                    map: map,
+                    icon: {
+                        path: window.google.maps.SymbolPath.CIRCLE,
+                        scale: 8,
+                        fillColor: referee.isAvailable ? "#4CAF50" : "#FF5722",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#FFFFFF",
+                    },
+                    title: referee.name,
+                });
+            });
+
+            // Add venue markers
+            venues.forEach((venue) => {
+                const marker = new window.google.maps.Marker({
+                    position: venue.location,
+                    map: map,
+                    icon: {
+                        path: window.google.maps.SymbolPath
+                            .BACKWARD_CLOSED_ARROW,
+                        scale: 6,
+                        fillColor: "#2196F3",
+                        fillOpacity: 1,
+                        strokeWeight: 2,
+                        strokeColor: "#FFFFFF",
+                    },
+                    title: venue.name,
+                });
+            });
+        }
+    }, [map, filteredReferees, venues]);
+
+    const handleFilterChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        updateFilters({
+            ...filters,
+            [name]: type === "checkbox" ? checked : value,
         });
+    };
+
+    const handleApplyFilters = () => {
         applyFilters();
-        updateMarkers();
-    };
-
-    const applyFilters = () => {
-        const filteredRefs = referees.filter((referee) => {
-            const isAvailable = !filters.availability || referee.isAvailable;
-            const meetsLevelRequirement =
-                !filters.level || referee.level === filters.level;
-            const meetsAgeRequirement =
-                !filters.minAge || referee.age >= filters.minAge;
-            const meetsExperienceRequirement =
-                !filters.minExperience ||
-                referee.experienceYears >= filters.minExperience;
-            const hasRequiredQualification =
-                !filters.qualification ||
-                referee.qualifications.includes(filters.qualification);
-            const withinDistance =
-                !filters.distance ||
-                calculateDistance(referee.location, {
-                    lat: -37.8136,
-                    lng: 144.9631,
-                }) <= filters.distance;
-
-            return (
-                isAvailable &&
-                meetsLevelRequirement &&
-                meetsAgeRequirement &&
-                meetsExperienceRequirement &&
-                hasRequiredQualification &&
-                withinDistance
-            );
-        });
-        setFilteredReferees(filteredRefs);
-
-        const filteredVens = venues.filter(
-            (venue) =>
-                !filters.distance ||
-                calculateDistance(venue.location, {
-                    lat: -37.8136,
-                    lng: 144.9631,
-                }) <= filters.distance,
-        );
-        setFilteredVenues(filteredVens);
-    };
-
-    const createSVGIcon = (element) => {
-        const svgString = ReactDOMServer.renderToString(element);
-        return `data:image/svg+xml;base64,${btoa(svgString)}`;
-    };
-
-    const updateMarkers = () => {
-        markersRef.current.forEach((marker) => marker.setMap(null));
-        markersRef.current = [];
-
-        filteredReferees.forEach((referee) => {
-            const icon = createSVGIcon(
-                <UserCircle
-                    fill={referee.isAvailable ? "#235DAE" : "#9EACC1"}
-                    color="white"
-                    size={32}
-                />,
-            );
-
-            const marker = new window.google.maps.Marker({
-                position: referee.location,
-                map: googleMapRef.current,
-                title: `${referee.name} (${referee.level})`,
-                icon: {
-                    url: icon,
-                    scaledSize: new window.google.maps.Size(32, 32),
-                },
-            });
-            markersRef.current.push(marker);
-        });
-
-        filteredVenues.forEach((venue) => {
-            const icon = createSVGIcon(
-                <MapPin fill="#0F007D" color="white" size={32} />,
-            );
-
-            const marker = new window.google.maps.Marker({
-                position: venue.location,
-                map: googleMapRef.current,
-                title: venue.name,
-                icon: {
-                    url: icon,
-                    scaledSize: new window.google.maps.Size(32, 32),
-                },
-            });
-            markersRef.current.push(marker);
-        });
-    };
-
-    const calculateDistance = (point1, point2) => {
-        const R = 6371; // Radius of the Earth in km
-        const dLat = ((point2.lat - point1.lat) * Math.PI) / 180;
-        const dLon = ((point2.lng - point1.lng) * Math.PI) / 180;
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((point1.lat * Math.PI) / 180) *
-                Math.cos((point2.lat * Math.PI) / 180) *
-                Math.sin(dLon / 2) *
-                Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in km
     };
 
     return (
         <div>
-            <div ref={mapRef} style={{ width: "100%", height: "500px" }}></div>
-            <div>Filtered Referees: {filteredReferees.length}</div>
-            <div>Filtered Venues: {filteredVenues.length}</div>
+            <div className="bg-blue-600 text-white p-4 mb-4">
+                <h1 className="text-2xl font-bold">Geographical View</h1>
+            </div>
+            <div className="container mx-auto">
+                <div className="mb-4 grid grid-cols-2 gap-4">
+                    <label className="block">
+                        <input
+                            type="checkbox"
+                            name="availability"
+                            checked={filters.availability}
+                            onChange={handleFilterChange}
+                            className="mr-2"
+                        />
+                        Available Only
+                    </label>
+                    <label className="block">
+                        <span className="mr-2">Level:</span>
+                        <select
+                            name="level"
+                            value={filters.level}
+                            onChange={handleFilterChange}
+                            className="border p-1"
+                        >
+                            <option value="">All</option>
+                            <option value="Junior">Junior</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Senior">Senior</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mr-2">Min Age:</span>
+                        <input
+                            type="number"
+                            name="minAge"
+                            value={filters.minAge}
+                            onChange={handleFilterChange}
+                            className="border p-1 w-20"
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mr-2">Min Experience (years):</span>
+                        <input
+                            type="number"
+                            name="minExperience"
+                            value={filters.minExperience}
+                            onChange={handleFilterChange}
+                            className="border p-1 w-20"
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mr-2">Qualification:</span>
+                        <select
+                            name="qualification"
+                            value={filters.qualification}
+                            onChange={handleFilterChange}
+                            className="border p-1"
+                        >
+                            <option value="">All</option>
+                            <option value="FIFA">FIFA</option>
+                            <option value="National">National</option>
+                            <option value="Regional">Regional</option>
+                            <option value="Youth">Youth</option>
+                        </select>
+                    </label>
+                    <label className="block">
+                        <span className="mr-2">Max Distance (km):</span>
+                        <input
+                            type="number"
+                            name="distance"
+                            value={filters.distance}
+                            onChange={handleFilterChange}
+                            className="border p-1 w-20"
+                        />
+                    </label>
+                </div>
+                <button
+                    onClick={handleApplyFilters}
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                >
+                    Apply Filters
+                </button>
+                <div
+                    ref={mapRef}
+                    style={{
+                        width: "100%",
+                        height: "500px",
+                        marginTop: "20px",
+                    }}
+                ></div>
+                <div>Filtered Referees: {filteredReferees.length}</div>
+                <div>Venues: {venues.length}</div>
+            </div>
         </div>
     );
 };
