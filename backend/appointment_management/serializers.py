@@ -1,5 +1,27 @@
 from rest_framework import serializers
-from .models import *
+from .models import (
+    Appointment,
+    Availability,
+    Club,
+    Match,
+    Notification,
+    Preference,
+    Referee,
+    Relative,
+    Venue,
+    AppointmentManagementAppointment,
+    AuthGroup,
+    AuthGroupPermissions,
+    AuthPermission,
+    AuthUser,
+    AuthUserGroups,
+    AuthUserUserPermissions,
+    DjangoAdminLog,
+    DjangoContentType,
+    DjangoMigrations,
+    DjangoSession,
+    Sysdiagrams
+)
 
 class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,7 +41,7 @@ class ClubSerializer(serializers.ModelSerializer):
 class MatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
-        fields = ['match_id', 'referee', 'home_club', 'away_club', 'venue', 'match_data', 'level']
+        fields = ['match_id', 'referee', 'home_club', 'away_club', 'venue', 'match_date', 'level']
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,7 +55,7 @@ class PreferenceSerializer(serializers.ModelSerializer):
 
 class RefereeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Preference
+        model = Referee  # Fixed to use Referee model
         fields = ['referee_id', 'first_name', 'last_name', 'age', 'location', 'email', 'phone_number', 'experience_years', 'level']
 
 class RelativeSerializer(serializers.ModelSerializer):
