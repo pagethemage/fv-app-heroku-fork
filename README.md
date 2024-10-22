@@ -11,6 +11,17 @@ The main goals of this platform are:
 - Address the issue of mass declines in age groups of U12, 13, and 14's fixtures
 - Ensure higher acceptance of appointments
 
+## Contents
+
+- [Football Victoria Referee Management Platform](#football-victoria-referee-management-platform)
+  - [Project Overview](#project-overview)
+  - [Contents](#contents)
+  - [Frontend Setup](#frontend-setup)
+  - [Backend Setup](#backend-setup)
+  - [Integrate Azure SQL Database with Django](#integrate-azure-sql-database-with-django)
+  - [Available Scripts](#available-scripts)
+  - [Project Structure](#project-structure)
+
 ## Frontend Setup
 
 1. Clone the repository and navigate to the root directory:
@@ -37,12 +48,11 @@ The main goals of this platform are:
     ```npm
     npm run dev
     ```
-
-    > Note:
+    > [!IMPORTANT]
     > - Keep the frontend and backend servers running in separate terminals.
     > - The backend server must be running for the frontend to work properly.
 
-5. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+1. Open [localhost:3000](http://localhost:3000) to view it in the browser.
 
 ## Backend Setup
 
@@ -95,7 +105,95 @@ The main goals of this platform are:
     python3 manage.py runserver
     ```
 
-The backend will be available at `http://localhost:8000`.
+> [!TIP]
+The backend will be available at [localhost:8000](http://localhost:8000).
+
+## Integrate Azure SQL Database with Django
+
+1. Remove old migration files in appointment_management/migrations (optional)
+
+2. Install the required packages in your virtual environment
+
+    ```python
+    pip install pyodbc
+    ```
+
+    ```python
+    pip install mssql-django
+    ```
+
+3. Save these packages in requirements.txt (optional)
+
+    ```python
+    pip freeze > requirements.txt
+    ```
+
+4. Check if Microsoft ODBC Driver for SQL Server is installed
+
+    Window users:
+    Open the ODBC Data Source Administrator tool. You can find it by searching for "ODBC" in the Start menu.
+    In the ODBC Data Source Administrator window, go to the "Drivers" tab.
+    Look for "ODBC Driver 17 for SQL Server" or the specific version of the driver you installed.
+
+    MacOS users:
+    Run the command
+
+    ```
+    odbcinst -q -d -n
+    ```
+
+    If not installed, install via <https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver16>
+
+5. Navigate to the fv_backend/settings.py file and change the database settings to:
+
+    ```
+    DATABASES = {
+        'default': {
+            'ENGINE': 'mssql',
+            'NAME': 'AFL Victoria',
+            'USER': 'aflvic',
+            'PASSWORD': 'Nga123456@',
+            'HOST': 'afl-victoria-sql.database.windows.net',
+            'PORT': '1433',
+            'OPTIONS': {
+                'driver': 'ODBC Driver 17 for SQL Server',
+            },
+        },
+    }
+    ```
+
+6. Delete previous models in appointment_management/models.py
+
+7. Migrate Azure database models to the app's model file
+
+    ```python
+    python3 manage.py inspectdb > appointment_management/models.py
+    ```
+    > [!NOTE]
+    > If you encounter error: `ValueError: source code strings cannot contain null bytes`, check the encoding type of the newly generated models.py file at the bottom right of VSCode screen: UTF-8 and UTF-16 may be conflicted.
+
+8. Check if database tables can be migrated
+
+    Create a python file (example.py) and type
+
+    ```python
+    from appointment_management.models import Referee
+
+    first_referee = Referee.objects.get(pk=1)
+
+    print(first_referee)
+    ```
+
+    Run the file and check terminal output
+
+    ```python
+    python example.py
+    ```
+
+> You can also check if you have access to Azure SQL database on Azure portal: <https://portal.azure.com/#browse/Microsoft.Sql%2Fservers%2Fdatabases>
+
+> [!TIP]
+> Keep terminal open to host backend.
 
 ## Available Scripts
 
