@@ -24,7 +24,15 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointmet = get_object_or_404(self.queryset, pk=pk)
         serializer = AppointmentSerializer(appointmet)
         return Response(serializer.data, status= status.HTTP_200_OK)
-    
+
+    #Retrive a specific appointment (GET /appointments/ {id})
+    def retrieve(self, request, pk=None):
+        appointmet = get_object_or_404(self.queryset, pk=pk)
+        serializer = AppointmentSerializer(appointmet)
+        return Response(serializer.data, status= status.HTTP_200_OK)
+
+    ## appointmet is a typo but I'm scared to correct it incase I break the code.
+
     #Create new appointment (POST /appointments/)
     def create(self, request):
         serializer = AppointmentSerializer(data=request.data)
@@ -32,7 +40,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status= status.HTTP_201_CREATED)
         return Response(serializer.errors, status= status.HTTP_400_BAD_REQUEST)
-    
+
     #Updata an existing appointment (PUT /appointments/{id})
     def updata(self, request, pk=None):
         appointment = get_object_or_404(self.queryset, pk=pk)
@@ -41,7 +49,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status= status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /appointments/{id})
     def partial_update(self, request, pk=None):
         appointment = get_object_or_404(self.queryset, pk=pk)
@@ -50,29 +58,29 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete an appointment (DELETE /appointments/{id})
     def destroy(self, request, pk=None):
         appointment = get_object_or_404(self.queryset ,pk=pk)
         appointment.delete()
         return Response(status = status.HTTP_204_NO_CONTENT)
-    
+
+    # def appointment_list(request):
+    #     appointments = Appointment.objects.all() #########
+
+
+
+
 class AvailabilityViewSet(viewsets.ModelViewSet):
     queryset = Availability.objects.all()
     serializer_class = AvailabilitySerializer
 
-    #List all availabilities (GET /appointments/)
-    def list(self, request):
-        queryset = self.get_queryset()
-        serializer = AvailabilitySerializer(queryset, many = True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
     #Retrieve a specific availability (GET /appointments/{id})
     def retrieve(self, request, pk=None):
         availability = get_object_or_404(self.queryset, pk=pk)
         serializer = AvailabilitySerializer(availability)
         return Response(serializer.data, status= status.HTTP_200_OK)
-    
+
     #Create a new availability (POST /appointments/)
     def create(self, request):
         serializer = AvailabilitySerializer(data=request.data)
@@ -80,7 +88,7 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing availability (PUT /appointment/{id})
     def update(self, request, pk=None):
         availability = get_object_or_404(self.queryset, pk=pk)
@@ -89,7 +97,14 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        if (request.query_params.get("referee")):
+            queryset = queryset.filter(referee_id=request.query_params.get("referee"))
+        serializer = AvailabilitySerializer(queryset, many = True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     #Partial update (PATCH /availabilities/{id})
     def partial_update(self, request, pk =None):
         availability = get_object_or_404(self.queryset, pk=pk)
@@ -98,13 +113,13 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete an availability (DELETE /availabilities/{id})
     def destroy(self, request, pk=None):
         availability = get_object_or_404(self.queryset, pk=pk)
         availability.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
 class ClubViewSet(viewsets.ModelViewSet):
     queryset = Club.objects.all()
     serializer_class = ClubSerializer
@@ -120,7 +135,7 @@ class ClubViewSet(viewsets.ModelViewSet):
         club = get_object_or_404(self.queryset, pk=pk)
         serializer = ClubSerializer(club)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create a new club (POST /clubs/)
     def create(self, request):
         serializer = ClubSerializer(data=request.data)
@@ -128,7 +143,7 @@ class ClubViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing club (PUT /clubs/{id})
     def update(self, request, pk=None):
         club = get_object_or_404(self.queryset, pk=pk)
@@ -137,7 +152,7 @@ class ClubViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /clubs/{id})
     def partial_update(self, request, pk=None):
         club = get_object_or_404(self.queryset ,pk=pk)
@@ -146,7 +161,7 @@ class ClubViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a club (DELETE /clubs/{id})
     def destroy(self, request, pk=None):
         club = get_object_or_404(self.queryset, pk=pk)
@@ -161,13 +176,23 @@ class MatchViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = MatchSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific match (GET /matches/{id})
     def retrieve(self, request, pk=None):
         match = get_object_or_404(self.queryset, pk=pk)
         serializer = MatchSerializer(match)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
+    #Retrieve qualified referees for a specific match (GET matches/qualified_referees/{id})
+    @action(detail=True)
+    def qualified_referees(self, request, pk=None):
+        match = get_object_or_404(self.queryset, pk=pk)
+        referee_availability_queryset = Referee.objects.prefetch_related('availability')
+        level_qualified_set = referee_availability_queryset.filter(level__gte=match.level)
+        final_availability_set = level_qualified_set.filter(availability__date=match.match_date)
+        serializer = RefereeAvailabilitySerializer(final_availability_set, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     #Create a new match (POST /matches/)
     def create(self, request):
         serializer = MatchSerializer(data=request.data)
@@ -175,7 +200,7 @@ class MatchViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing match (PUT /matches/{id})
     def update(self, request, pk=None):
         match = get_object_or_404(self.queryset, pk=pk)
@@ -184,7 +209,7 @@ class MatchViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /matches/{id})
     def partial_update(self, request, pk=None):
         match = get_object_or_404(self.queryset, pk=pk)
@@ -193,7 +218,7 @@ class MatchViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a match (DELETE /matches/{id})
     def destroy(self, request, pk=None):
         match = get_object_or_404(self.queryset, pk=pk)
@@ -208,13 +233,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = NotificationSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific notification (GET /notifications/{id})
     def retrieve(self, request, pk=None):
         notification = get_object_or_404(self.queryset, pk=pk)
         serializer = NotificationSerializer(notification)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create a new notification (POST /notifications/)
     def create(self, request):
         serializer = NotificationSerializer(data=request.data)
@@ -222,7 +247,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing notification (PUT /notifications/{id})
     def update(self, request, pk=None):
         notification = get_object_or_404(self.queryset, pk=pk)
@@ -231,7 +256,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /notifications/{id})
     def partial_update(self, request, pk=None):
         notification = get_object_or_404(self.queryset, pk=pk)
@@ -240,7 +265,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a notification (DELETE /notifications/{id})
     def destroy(self, request, pk=None):
         notification = get_object_or_404(self.queryset, pk=pk)
@@ -255,13 +280,13 @@ class PreferenceViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = PreferenceSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific preference (GET /preferences/{id})
     def retrieve(self, request, pk=None):
         preference = get_object_or_404(self.queryset, pk=pk)
         serializer = PreferenceSerializer(preference)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create a new preference (POST /preferences/)
     def create(self, request):
         serializer = PreferenceSerializer(data=request.data)
@@ -269,7 +294,7 @@ class PreferenceViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing preference (PUT /preferences/{id})
     def update(self, request, pk=None):
         preference = get_object_or_404(self.queryset, pk=pk)
@@ -278,7 +303,7 @@ class PreferenceViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /preferences/{id})
     def partial_update(self, request, pk=None):
         preference = get_object_or_404(self.queryset, pk=pk)
@@ -287,7 +312,7 @@ class PreferenceViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a preference (DELETE /preferenes/{id})
     def destroy(self, request, pk=None):
         preference = get_object_or_404(self.queryset, pk=pk)
@@ -297,19 +322,19 @@ class PreferenceViewSet(viewsets.ModelViewSet):
 class RefereeViewSet(viewsets.ModelViewSet):
     queryset = Referee.objects.all()
     serializer_class = RefereeSerializer
-    
+
     #List all the referees (GET /referees/)
     def list(self, request):
         queryset = self.get_queryset()
         serializer = RefereeSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific referee (GET /referees/{id})
     def retrieve(self, request, pk=None):
         referee = get_object_or_404(self.queryset, pk=pk)
         serializer = RefereeSerializer(referee)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create a new referee (POST /referees/)
     def create(self, request):
         serializer = RefereeSerializer(data = request.data)
@@ -326,7 +351,7 @@ class RefereeViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /referees/{id})
     def partial_update(self, request, pk=None):
         referee = get_object_or_404(self.queryset, pk=pk)
@@ -335,7 +360,7 @@ class RefereeViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a referee (DELETE /referees/{id})
     def destroy(self, request, pk=None):
         referee = get_object_or_404(self.queryset, pk=pk)
@@ -350,22 +375,22 @@ class RelativeViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = RelativeSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific relative (GET /relatives/{id})
     def retrieve(self, request, pk=None):
         relative = get_object_or_404(self.queryset, pk=pk)
         serializer = RelativeSerializer(relative)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    #Create a new referee (POST /referees/)
+
+    #Create new relative (POST /relatives/)
     def create(self, request):
         serializer = RelativeSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    #Update an existing relative (PUT /relatives/{id})
+
+    #Updata an existing relative (PUT /relatives/{id})
     def update(self, request, pk=None):
         relative = get_object_or_404(self.queryset, pk=pk)
         serializer = RelativeSerializer(relative, data=request.data)
@@ -373,7 +398,7 @@ class RelativeViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /relatives/{id})
     def partial_update(self, request, pk=None):
         relative = get_object_or_404(self.queryset, pk=pk)
@@ -382,14 +407,12 @@ class RelativeViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a relative (DELETE /relatives/{id})
     def destroy(self, request, pk=None):
         relative = get_object_or_404(self.queryset, pk=pk)
         relative.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
-
 class VenueViewSet(viewsets.ModelViewSet):
     queryset = Venue.objects.all()
     serializer_class = VenueSerializer
@@ -399,13 +422,13 @@ class VenueViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = VenueSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific venue (GET /venues/{id})
     def retrieve(self, request, pk=None):
         venue = get_object_or_404(self.queryset, pk=pk)
         serializer = VenueSerializer(venue)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create new venue (POST /venues/)
     def create(self, request):
         serializer = VenueSerializer(data=request.data)
@@ -413,7 +436,7 @@ class VenueViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing venue (PUT /venues/{id})
     def update(self, request, pk=None):
         venue = get_object_or_404(self.queryset, pk=pk)
@@ -422,7 +445,7 @@ class VenueViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /venues/{id})
     def partial_update(self, request, pk=None):
         venue = get_object_or_404(self.queryset, pk=pk)
@@ -431,7 +454,7 @@ class VenueViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete a venue (DELETE /venues/{id})
     def destroy(self, request, pk=None):
         venue = get_object_or_404(self.queryset, pk=pk)
@@ -440,26 +463,26 @@ class VenueViewSet(viewsets.ModelViewSet):
 class AppointmentManagementAppointmentViewSet(viewsets.ModelViewSet):
     queryset = AppointmentManagementAppointment.objects.all()
     serializer_class = AppointmentManagementAppointmentSerializer
-    
+
     #List all appointment_manage_appointment (GET /appointmentmanageappointment/)
     def list(self, request):
         queryset = self.get_queryset()
         serializer = AppointmentManagementAppointmentSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Retrieve a specific appointment_manage_appointment (GET /appointmentmanageappointment/{id})
     def retrieve(self, request, pk=None):
         appointment_manage_appointment = get_object_or_404(self.request, pk=pk)
         serializer = AppointmentManagementAppointmentSerializer(appointment_manage_appointment)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
     #Create a new appointment_manage_appointment (POST /appointmentmanageappointment/)
     def create(self, request):
         serializer = AppointmentManagementAppointmentSerializer(data=request.data)
         if serializer.is_valid():
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Update an existing appointment_manage_appointment (PUT /appointmentmanageappointment/{id})
     def update(self, request, pk=None):
         appointment_manage_appointment = get_object_or_404(self.request, pk=pk)
@@ -468,7 +491,7 @@ class AppointmentManagementAppointmentViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Partial update (PATCH /appointmentmanageappointment/{id})
     def partial_update(self, request, pk=None):
         appointment_manage_appointment = get_object_or_404(self.queryset, pk=pk)
@@ -477,7 +500,7 @@ class AppointmentManagementAppointmentViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     #Delete an appointment_manage_appointment (DELETE /appointmentmanageappointment/)
     def destroy(self, request, pk=None):
         appointment_manage_appointment = get_object_or_404(self.queryset, pk=pk)
