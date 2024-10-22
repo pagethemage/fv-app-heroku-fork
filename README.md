@@ -18,6 +18,7 @@ The main goals of this platform are:
   - [Contents](#contents)
   - [Frontend Setup](#frontend-setup)
   - [Backend Setup](#backend-setup)
+  - [Integrate Azure SQL Database with Django](#integrate-azure-sql-database-with-django)
   - [Available Scripts](#available-scripts)
   - [Project Structure](#project-structure)
 
@@ -115,7 +116,8 @@ The backend will be available at [localhost:8000](http://localhost:8000).
 2. Install the required packages in your virtual environment
 
     ```python
-    pip install pyodbc mssql-django
+    pip install pyodbc
+    pip install mssql-django
     ```
 
 3. ~~Save these packages in requirements.txt (optional)~~
@@ -141,7 +143,7 @@ The backend will be available at [localhost:8000](http://localhost:8000).
 
 5. Navigate to the fv_backend/settings.py file and change the database settings to:
 
-    ```
+    ```python
     DATABASES = {
         'default': {
             'ENGINE': 'mssql',
