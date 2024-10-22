@@ -18,7 +18,6 @@ The main goals of this platform are:
   - [Contents](#contents)
   - [Frontend Setup](#frontend-setup)
   - [Backend Setup](#backend-setup)
-  - [Integrate Azure SQL Database with Django](#integrate-azure-sql-database-with-django)
   - [Available Scripts](#available-scripts)
   - [Project Structure](#project-structure)
 
