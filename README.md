@@ -48,11 +48,12 @@ The main goals of this platform are:
     ```npm
     npm run dev
     ```
+
     > [!IMPORTANT]
     > - Keep the frontend and backend servers running in separate terminals.
     > - The backend server must be running for the frontend to work properly.
 
-1. Open [localhost:3000](http://localhost:3000) to view it in the browser.
+5. Open [localhost:3000](http://localhost:3000) to view it in the browser.
 
 ## Backend Setup
 
@@ -138,7 +139,7 @@ The backend will be available at [localhost:8000](http://localhost:8000).
     MacOS users:
     Run the command
 
-    ```
+    ```odbc
     odbcinst -q -d -n
     ```
 
@@ -169,6 +170,7 @@ The backend will be available at [localhost:8000](http://localhost:8000).
     ```python
     python3 manage.py inspectdb > appointment_management/models.py
     ```
+
     > [!NOTE]
     > If you encounter error: `ValueError: source code strings cannot contain null bytes`, check the encoding type of the newly generated models.py file at the bottom right of VSCode screen: UTF-8 and UTF-16 may be conflicted.
 
