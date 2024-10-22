@@ -111,19 +111,15 @@ The backend will be available at [localhost:8000](http://localhost:8000).
 
 ## Integrate Azure SQL Database with Django
 
-1. Remove old migration files in appointment_management/migrations (optional)
+1. ~~Remove old migration files in appointment_management/migrations (optional)~~
 
 2. Install the required packages in your virtual environment
 
     ```python
-    pip install pyodbc
+    pip install pyodbc mssql-django
     ```
 
-    ```python
-    pip install mssql-django
-    ```
-
-3. Save these packages in requirements.txt (optional)
+3. ~~Save these packages in requirements.txt (optional)~~
 
     ```python
     pip freeze > requirements.txt
@@ -136,8 +132,7 @@ The backend will be available at [localhost:8000](http://localhost:8000).
     In the ODBC Data Source Administrator window, go to the "Drivers" tab.
     Look for "ODBC Driver 17 for SQL Server" or the specific version of the driver you installed.
 
-    MacOS users:
-    Run the command
+    **MacOS users, run the command:**
 
     ```odbc
     odbcinst -q -d -n
@@ -163,7 +158,7 @@ The backend will be available at [localhost:8000](http://localhost:8000).
     }
     ```
 
-6. Delete previous models in appointment_management/models.py
+6. ~~Delete previous models in appointment_management/models.py~~
 
 7. Migrate Azure database models to the app's model file
 
@@ -176,20 +171,11 @@ The backend will be available at [localhost:8000](http://localhost:8000).
 
 8. Check if database tables can be migrated
 
-    Create a python file (example.py) and type
+    Execute the file `test-database.py`, and check terminal output.
 
     ```python
-    from appointment_management.models import Referee
-
-    first_referee = Referee.objects.get(pk=1)
-
-    print(first_referee)
-    ```
-
-    Run the file and check terminal output
-
-    ```python
-    python example.py
+    cd backend/appointment_management
+    python3 test-database.py
     ```
 
 > You can also check if you have access to Azure SQL database on Azure portal: <https://portal.azure.com/#browse/Microsoft.Sql%2Fservers%2Fdatabases>
