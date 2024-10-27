@@ -1,14 +1,36 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import AppointmentTable from "../components/AppointmentTable";
 import MatchDetails from "../components/MatchDetails";
 import TitleWithBar from "../components/TitleWithBar";
+import withAsyncState from "../hoc/withAsyncState";
+import { appointmentService } from "../services/api";
+import { toast } from "react-toastify";
 
 const Dashboard = () => {
-    const { appointments } = useAppContext();
-    const [selectedMatch, setSelectedMatch] = React.useState(null);
+    const [appointments, setAppointments] = useState([]);
+    const [selectedMatch, setSelectedMatch] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    return (
+    const fetchAppointments = async () => {
+        try {
+            setLoading(true);
+            const response = await appointmentService.getAllAppointments();
+            setAppointments(response.data || []);
+        } catch (err) {
+            setError("Failed to load appointments");
+            toast.error("Failed to load appointments");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAppointments();
+    }, []);
+
+    const DashboardContent = withAsyncState(({ appointments }) => (
         <div>
             <TitleWithBar title="Upcoming Appointments" />
             <AppointmentTable
@@ -23,6 +45,17 @@ const Dashboard = () => {
                 />
             )}
         </div>
+    ));
+
+    return (
+        <DashboardContent
+            loading={loading}
+            error={error}
+            appointments={appointments}
+            onRetry={fetchAppointments}
+            loadingMessage="Loading appointments..."
+            errorMessage="Failed to load appointments"
+        />
     );
 };
 

@@ -36,12 +36,14 @@ const Header = ({ showDropdown, setShowDropdown }) => {
                             className="bg-blue-700 hover:bg-blue-600 text-white py-2 px-4 rounded"
                         >
                             Logged in as{" "}
-                            <span className="font-bold">{user.firstName}</span>
+                            <span className="font-bold">
+                                {user?.first_name || user?.firstName || "User"}
+                            </span>
                         </Button>
                         {showDropdown && (
                             <div className="absolute right-0 mt-2 py-2 w-48 bg-white rounded-md shadow-xl z-20">
                                 <button
-                                    className="block px-4 py-2 text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white"
+                                    className="block px-4 py-2 text-sm capitalize text-gray-700 hover:bg-blue-500 hover:text-white w-full text-left"
                                     onClick={handleLogout}
                                 >
                                     Logout
