@@ -2,35 +2,56 @@ import React, { useState, useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import TitleWithBar from "../components/TitleWithBar";
 import Button from "../components/Button";
-import withAsyncState from "../hoc/withAsyncState";
+import ErrorDisplay from "../components/ErrorDisplay";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { refereeService } from "../services/api";
 import { toast } from "react-toastify";
 
+// Default settings
+const defaultSettings = {
+    emailNotifications: false,
+    smsNotifications: false,
+    language: "en",
+    timezone: "Australia/Melbourne",
+    maxTravelDistance: 50,
+    autoDecline: false,
+    autoAcceptPreferred: false,
+};
+
 const Settings = () => {
     const { user } = useAppContext();
-    const [settings, setSettings] = useState(null);
+    const [settings, setSettings] = useState(defaultSettings);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-    const fetchSettings = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await refereeService.getRefereeSettings(user.id);
-            setSettings(response.data);
-        } catch (err) {
-            setError(err.response?.data?.message || "Failed to fetch settings");
-            toast.error("Failed to load settings");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
+        const fetchSettings = async () => {
+            if (!user?.referee_id) {
+                setError("No user ID found");
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await refereeService.getRefereeProfile(
+                    user.referee_id,
+                );
+                setSettings(response.data?.settings || defaultSettings);
+            } catch (err) {
+                console.error("Error fetching settings:", err);
+                setError("Failed to load settings");
+                setSettings(defaultSettings);
+            } finally {
+                setLoading(false);
+            }
+        };
+
         fetchSettings();
-    }, [user.id]);
+    }, [user?.referee_id]);
 
     const handleSettingChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -41,23 +62,44 @@ const Settings = () => {
     };
 
     const handleSaveSettings = async () => {
+        if (!user?.referee_id) {
+            toast.error("No user ID found");
+            return;
+        }
+
         try {
             setSaving(true);
-            await refereeService.updateRefereeSettings(user.id, settings);
+            await refereeService.updateRefereeProfile(user.referee_id, {
+                settings: settings,
+            });
             toast.success("Settings updated successfully");
         } catch (err) {
-            toast.error(
-                err.response?.data?.message || "Failed to update settings",
-            );
+            console.error("Error saving settings:", err);
+            toast.error("Failed to save settings");
         } finally {
             setSaving(false);
         }
     };
 
-    const SettingsContent = withAsyncState(({ settings }) => (
-        <>
+    if (error) {
+        return (
+            <ErrorDisplay
+                error={error}
+                message="Failed to load settings"
+                onRetry={() => window.location.reload()}
+            />
+        );
+    }
+
+    if (loading) {
+        return <LoadingSpinner message="Loading settings..." />;
+    }
+
+    return (
+        <div className="space-y-6">
             <TitleWithBar title="Settings" />
-            <div className="bg-white shadow rounded-lg p-6">
+
+            <div className="bg-white rounded-lg shadow-lg p-6">
                 {/* Notification Settings */}
                 <section className="mb-8">
                     <h3 className="text-xl font-semibold mb-4">
@@ -70,7 +112,7 @@ const Settings = () => {
                                 name="emailNotifications"
                                 checked={settings.emailNotifications}
                                 onChange={handleSettingChange}
-                                className="form-checkbox h-5 w-5 text-blue-600"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span className="ml-2">
                                 Receive email notifications
@@ -82,7 +124,7 @@ const Settings = () => {
                                 name="smsNotifications"
                                 checked={settings.smsNotifications}
                                 onChange={handleSettingChange}
-                                className="form-checkbox h-5 w-5 text-blue-600"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span className="ml-2">
                                 Receive SMS notifications
@@ -158,7 +200,7 @@ const Settings = () => {
                                 name="autoDecline"
                                 checked={settings.autoDecline}
                                 onChange={handleSettingChange}
-                                className="form-checkbox h-5 w-5 text-blue-600"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span className="ml-2">
                                 Automatically decline matches outside travel
@@ -171,7 +213,7 @@ const Settings = () => {
                                 name="autoAcceptPreferred"
                                 checked={settings.autoAcceptPreferred}
                                 onChange={handleSettingChange}
-                                className="form-checkbox h-5 w-5 text-blue-600"
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span className="ml-2">
                                 Automatically accept matches at preferred venues
@@ -212,21 +254,10 @@ const Settings = () => {
                 <PasswordChangeModal
                     isOpen={showPasswordModal}
                     onClose={() => setShowPasswordModal(false)}
-                    userId={user.id}
+                    userId={user?.referee_id}
                 />
             )}
-        </>
-    ));
-
-    return (
-        <SettingsContent
-            loading={loading}
-            error={error}
-            settings={settings}
-            onRetry={fetchSettings}
-            loadingMessage="Loading settings..."
-            errorMessage="Failed to load settings"
-        />
+        </div>
     );
 };
 
@@ -250,14 +281,28 @@ const PasswordChangeModal = ({ isOpen, onClose, userId }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!userId) {
+            setError("User ID not found");
+            return;
+        }
+
         if (passwords.new !== passwords.confirm) {
             setError("New passwords don't match");
             return;
         }
 
+        if (passwords.new.length < 8) {
+            setError("New password must be at least 8 characters long");
+            return;
+        }
+
         try {
             setChanging(true);
-            await refereeService.changePassword(userId, passwords);
+            await refereeService.updateRefereeProfile(userId, {
+                password: passwords.new,
+                current_password: passwords.current,
+            });
             toast.success("Password changed successfully");
             onClose();
         } catch (err) {
@@ -302,6 +347,7 @@ const PasswordChangeModal = ({ isOpen, onClose, userId }) => {
                             value={passwords.new}
                             onChange={handleChange}
                             required
+                            minLength={8}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
@@ -315,6 +361,7 @@ const PasswordChangeModal = ({ isOpen, onClose, userId }) => {
                             value={passwords.confirm}
                             onChange={handleChange}
                             required
+                            minLength={8}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                         />
                     </div>
