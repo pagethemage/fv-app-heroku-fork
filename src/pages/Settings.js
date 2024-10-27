@@ -96,10 +96,10 @@ const Settings = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <>
             <TitleWithBar title="Settings" />
 
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
                 {/* Notification Settings */}
                 <section className="mb-8">
                     <h3 className="text-xl font-semibold mb-4">
@@ -257,7 +257,7 @@ const Settings = () => {
                     userId={user?.referee_id}
                 />
             )}
-        </div>
+        </>
     );
 };
 
@@ -316,7 +316,7 @@ const PasswordChangeModal = ({ isOpen, onClose, userId }) => {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md ">
                 <h3 className="text-xl font-semibold mb-4">Change Password</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (

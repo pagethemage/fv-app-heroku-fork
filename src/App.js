@@ -147,7 +147,7 @@ const App = () => {
 
                                                     <div>
                                                         <TitleWithBar title="News and Messages" />
-                                                        <div className="bg-white shadow rounded-lg p-4">
+                                                        <div className="bg-white shadow rounded-lg p-4 mb-6">
                                                             <p className="text-gray-500">
                                                                 No messages to
                                                                 display.
