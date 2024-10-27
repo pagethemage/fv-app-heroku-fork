@@ -327,7 +327,7 @@ const RefereeFilter = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="">
             <div className="flex justify-between items-center">
                 <TitleWithBar title="Referee Filter" />
             </div>
@@ -470,7 +470,7 @@ const RefereeFilter = () => {
             </div>
 
             {/* Map */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden relative">
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden relative mt-6">
                 {loading && (
                     <div className="absolute inset-0 bg-white bg-opacity-75 z-10">
                         <LoadingSpinner message="Loading map data..." />
@@ -480,7 +480,7 @@ const RefereeFilter = () => {
             </div>
 
             {/* Results */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
                 <h3 className="text-lg font-semibold mb-4">
                     Found {filteredReferees.length} matching referees
                 </h3>
