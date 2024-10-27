@@ -480,7 +480,7 @@ const RefereeFilter = () => {
             </div>
 
             {/* Results */}
-            <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-6 mb-6">
                 <h3 className="text-lg font-semibold mb-4">
                     Found {filteredReferees.length} matching referees
                 </h3>
