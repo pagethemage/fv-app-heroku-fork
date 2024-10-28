@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from . import views
 
 router = DefaultRouter()
-router.register(r'appointments', views.AppointmentViewSet)
+router.register(r'appointments', views.AppointmentViewSet, basename='appointment')
 router.register(r'referee', views.RefereeViewSet)
 router.register(r'availability', views.AvailabilityViewSet, basename='availability')
 router.register(r'venues', views.VenueViewSet)
@@ -11,7 +11,6 @@ router.register(r'teams', views.TeamViewSet, basename='team')
 router.register(r'clubs', views.ClubViewSet)
 router.register(r'notifications', views.NotificationViewSet)
 router.register(r'preferences', views.PreferenceViewSet)
-router.register(r'relatives', views.RelativeViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

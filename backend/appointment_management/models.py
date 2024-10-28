@@ -27,11 +27,15 @@ class Appointment(models.Model):
         (complete, "Complete"),
         (cancelled, "Cancelled"),
     ]
-    status = models.CharField(max_length=10, choices=game_status, default=ongoing)
+    status = models.CharField(max_length=10, choices=game_status, default=upcoming, db_index=True)
 
     class Meta:
         managed = True
         db_table = 'Appointment'
+        indexes = [
+            models.Index(fields=['appointment_date', 'appointment_time']),
+            models.Index(fields=['referee', 'status']),
+        ]
 
 class Availability(models.Model):
     main_days = [

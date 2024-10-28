@@ -5,23 +5,44 @@ const AppointmentTable = ({ appointments = [], onViewMatch }) => {
     const getStatusColor = (status) => {
         if (!status) return "bg-gray-500 text-white";
         switch (status.toLowerCase()) {
-            case "confirmed", "complete":
+            // Green
+            case "confirmed":
                 return "bg-green-500 text-white";
+            case "complete":
+                return "bg-green-500 text-white";
+            case "success":
+                return "bg-green-500 text-white";
+            // Blue
+            case "upcoming":
+                return "bg-blue-500 text-white";
+            // Yellow
             case "pending":
                 return "bg-yellow-500 text-white";
-            case "declined", "cancelled":
+            // Red
+            case "declined":
                 return "bg-red-500 text-white";
-            case "success":
-                return "bg-purple-500 text-white";
+            case "cancelled":
+                return "bg-red-500 text-white";
+            case "fail":
+                return "bg-red-500 text-white";
+            // Gray
             default:
                 return "bg-gray-500 text-white";
         }
     };
 
-    // Handle paginated response or direct array
-    const appointmentList = Array.isArray(appointments)
-        ? appointments
-        : appointments?.results || [];
+    if (!Array.isArray(appointments)) {
+        console.error("Appointments is not an array:", appointments);
+        return <div>Error: Invalid appointments data</div>;
+    }
+
+    if (appointments.length === 0) {
+        return (
+            <div className="text-center py-8 text-gray-500">
+                No appointments found
+            </div>
+        );
+    }
 
     return (
         <div className="overflow-x-auto">
@@ -55,53 +76,47 @@ const AppointmentTable = ({ appointments = [], onViewMatch }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {appointmentList.length === 0 ? (
-                        <tr>
-                            <td
-                                colSpan="8"
-                                className="px-3 py-4 text-center text-gray-500"
-                            >
-                                No appointments found
-                            </td>
-                        </tr>
-                    ) : (
-                        appointmentList.map((appointment) => (
+                    {appointments.map((appointment) => {
+                        console.log("Rendering appointment:", appointment); // Debug log
+                        return (
                             <tr
                                 key={
                                     appointment.appointment_id || appointment.id
                                 }
                             >
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.match?.level || "N/A"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.type || "Standard"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.appointment_date ||
-                                        appointment.date}
+                                        appointment.date ||
+                                        "N/A"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.appointment_time ||
-                                        appointment.time}
+                                        appointment.time ||
+                                        "N/A"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.match
                                         ? `${
                                               appointment.match.home_club
-                                                  ?.club_name || "TBD"
+                                                  ?.club_name || "TBA"
                                           } vs ${
                                               appointment.match.away_club
-                                                  ?.club_name || "TBD"
+                                                  ?.club_name || "TBA"
                                           }`
-                                        : appointment.teams || "TBD"}
+                                        : appointment.teams || "TBA"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-left">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-left">
                                     {appointment.venue?.venue_name ||
                                         appointment.venue ||
-                                        "TBD"}
+                                        "TBA"}
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-center">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-center">
                                     <span
                                         className={`px-3 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
                                             appointment.status,
@@ -117,16 +132,18 @@ const AppointmentTable = ({ appointments = [], onViewMatch }) => {
                                             : "Unknown"}
                                     </span>
                                 </td>
-                                <td className="px-3 py-3 whitespace-no-wrap border-b border-gray-200 text-center">
+                                <td className="px-3 py-3 whitespace-nowrap border-b border-gray-200 text-center">
                                     <Button
-                                        onClick={() => onViewMatch(appointment)}
+                                        onClick={() =>
+                                            onViewMatch?.(appointment)
+                                        }
                                     >
                                         View
                                     </Button>
                                 </td>
                             </tr>
-                        ))
-                    )}
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

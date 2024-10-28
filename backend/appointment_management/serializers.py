@@ -12,6 +12,9 @@ from .models import (
     Venue,
     PasswordReset
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -81,12 +84,46 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Appointment
-        fields = ['appointment_id', 'referee', 'venue', 'match', 'distance', 'appointment_date', 'appointment_time', 'status']
+        fields = [
+            'appointment_id', 'referee', 'venue', 'match',
+            'distance', 'appointment_date', 'appointment_time', 'status'
+        ]
+
+    def to_representation(self, instance):
+        try:
+            representation = super().to_representation(instance)
+
+            # Format date and time if they exist
+            if representation.get('appointment_date'):
+                representation['appointment_date'] = instance.appointment_date.strftime('%Y-%m-%d')
+
+            if representation.get('appointment_time'):
+                representation['appointment_time'] = instance.appointment_time.strftime('%H:%M') if instance.appointment_time else None
+
+            # Ensure all required fields have at least a default value
+            representation['status'] = representation.get('status', 'pending')
+            representation['distance'] = representation.get('distance', 0)
+
+            return representation
+        except Exception as e:
+            logger.error(f"Error serializing appointment {instance.appointment_id}: {str(e)}")
+            return {
+                'appointment_id': instance.appointment_id,
+                'error': 'Error serializing appointment data'
+            }
 
 class AppointmentWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appointment
-        fields = ['appointment_id', 'referee', 'venue', 'match', 'distance', 'appointment_date', 'appointment_time', 'status']
+        fields = [
+            'appointment_id', 'referee', 'venue', 'match',
+            'distance', 'appointment_date', 'appointment_time', 'status'
+        ]
+
+    def validate(self, data):
+        if data.get('appointment_date') and data.get('appointment_time'):
+            pass
+        return data
 
 class AvailabilitySerializer(serializers.ModelSerializer):
     referee = RefereeSerializer(read_only=True)

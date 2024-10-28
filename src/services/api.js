@@ -38,17 +38,108 @@ export const refereeService = {
 
 // Appointment endpoints
 export const appointmentService = {
-    getAllAppointments: async () => {
-        const response = await api.get("/appointments/");
-        return {
-            ...response,
-            data: response.data.results || [], // Extract the results array
-        };
+    getAllAppointments: async (page = 1) => {
+        try {
+            console.log("Fetching appointments for page:", page);
+
+            const response = await api.get("/appointments/", {
+                params: {
+                    page,
+                    page_size: 20,
+                    ordering: "-appointment_date,appointment_time",
+                },
+                timeout: 15000, // 15 seconds
+            });
+
+            console.log("Raw appointment response:", response);
+
+            // Check if we got a valid response
+            if (!response.data) {
+                throw new Error("No data received from server");
+            }
+
+            // Handle both paginated and non-paginated responses
+            const appointments = response.data.results || response.data;
+            const count = response.data.count || appointments.length;
+
+            return {
+                data: Array.isArray(appointments) ? appointments : [],
+                meta: {
+                    count: count,
+                    next: response.data.next,
+                    previous: response.data.previous,
+                    current_page: page,
+                    total_pages: Math.ceil(count / 20),
+                },
+            };
+        } catch (error) {
+            console.error("Detailed appointment fetch error:", {
+                error,
+                response: error.response,
+                request: error.request,
+                config: error.config,
+            });
+
+            if (error.code === "ECONNABORTED") {
+                throw new Error("Request timed out. Please try again.");
+            }
+
+            const errorMessage =
+                error.response?.data?.error ||
+                error.response?.data?.message ||
+                error.message ||
+                "Failed to fetch appointments";
+
+            throw new Error(errorMessage);
+        }
     },
-    getAppointment: (id) => api.get(`/appointments/${id}/`),
-    createAppointment: (data) => api.post("/appointments/", data),
-    updateAppointment: (id, data) => api.put(`/appointments/${id}/`, data),
-    deleteAppointment: (id) => api.delete(`/appointments/${id}/`),
+
+    getAppointment: async (id) => {
+        try {
+            const response = await api.get(`/appointments/${id}/`);
+            return response.data;
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error ||
+                    "Failed to fetch appointment details",
+            );
+        }
+    },
+
+    createAppointment: async (data) => {
+        try {
+            const response = await api.post("/appointments/", data);
+            return response;
+        } catch (error) {
+            console.error("Appointment creation error:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to create appointment",
+            );
+        }
+    },
+
+    updateAppointment: async (id, data) => {
+        try {
+            const response = await api.put(`/appointments/${id}/`, data);
+            return response.data;
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error || "Failed to update appointment",
+            );
+        }
+    },
+
+    deleteAppointment: async (id) => {
+        try {
+            const response = await api.delete(`/appointments/${id}/`);
+            return response;
+        } catch (error) {
+            console.error("Appointment deletion error:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to delete appointment",
+            );
+        }
+    },
 };
 
 // Availability endpoints
@@ -106,6 +197,16 @@ api.interceptors.response.use(
             localStorage.removeItem("authToken");
             window.location.href = "/login";
         }
+
+        // Format error message
+        const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            "An error occurred";
+
+        // Enhance error object
+        error.userMessage = errorMessage;
         return Promise.reject(error);
     },
 );

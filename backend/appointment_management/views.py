@@ -3,15 +3,22 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
+from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.db.models import Prefetch, Q
 from django.core.mail import send_mail
 from django.conf import settings
 from datetime import datetime, timedelta
 from django.utils import timezone
+from .models import Appointment
+from .serializers import AppointmentSerializer, AppointmentWriteSerializer
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Appointment,
@@ -344,35 +351,95 @@ class RefereeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+class AppointmentPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class AppointmentViewSet(viewsets.ModelViewSet):
-    queryset = Appointment.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = AppointmentPagination
+    queryset = Appointment.objects.all()
+    serializer_class = AppointmentSerializer
+
+    def get_queryset(self):
+        base_queryset = Appointment.objects.select_related(
+            'referee',
+            'referee__user',
+            'venue',
+            'match'
+        ).select_related(
+            'match__home_club',
+            'match__away_club'
+        )
+
+        # Filter future appointments by default
+        queryset = base_queryset.filter(
+            appointment_date__gte=timezone.now().date()
+        ).order_by('appointment_date', 'appointment_time')
+
+        # Filter by user if not staff
+        if not self.request.user.is_staff:
+            queryset = queryset.filter(referee__user=self.request.user)
+
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            page = self.paginate_queryset(queryset)
+
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error in AppointmentViewSet.list: {str(e)}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return AppointmentWriteSerializer
         return AppointmentSerializer
 
-    def get_queryset(self):
-        if self.request.user.is_staff:
-            return self.queryset
-        return self.queryset.filter(referee__user=self.request.user)
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in AppointmentViewSet.create: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An error occurred while creating the appointment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    @action(detail=True, methods=['post'])
-    def accept(self, request, pk=None):
-        appointment = self.get_object()
-        appointment.status = 'confirmed'
-        appointment.save()
-        serializer = self.get_serializer(appointment)
-        return Response(serializer.data)
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in AppointmentViewSet.update: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An error occurred while updating the appointment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    @action(detail=True, methods=['post'])
-    def decline(self, request, pk=None):
-        appointment = self.get_object()
-        appointment.status = 'declined'
-        appointment.save()
-        serializer = self.get_serializer(appointment)
-        return Response(serializer.data)
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in AppointmentViewSet.destroy: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "An error occurred while deleting the appointment."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class AvailabilityViewSet(viewsets.ModelViewSet):
     queryset = Availability.objects.all()
