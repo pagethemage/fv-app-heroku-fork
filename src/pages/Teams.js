@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import TeamDetailsModal from "../components/TeamDetailsModal";
 
-const ITEMS_PER_PAGE = 9; // Match the Venues page pagination
+const ITEMS_PER_PAGE = 9;
 
 const Teams = () => {
     const [teams, setTeams] = useState([]);
