@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import TitleWithBar from "../components/TitleWithBar";
 import Button from "../components/Button";
@@ -17,24 +17,20 @@ import {
 import LoadingSpinner from "../components/LoadingSpinner";
 import VenueForm from "../components/VenueForm";
 import VenueDetails from "../components/VenueDetails";
+import LocationMap from "../components/LocationMap";
 import { toast } from "react-toastify";
-import SimpleMap from "../components/SimpleMap";
 
 const MELBOURNE_CENTER = { lat: -37.8136, lng: 144.9631 };
 const ITEMS_PER_PAGE = 9;
 
 const Venues = () => {
-    const [venues, setVenue] = useState([]);
+    const [venues, setVenues] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [mapError, setMapError] = useState(null);
     const [selectedVenue, setSelectedVenue] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'map'
     const [searchTerm, setSearchTerm] = useState("");
-    const mapRef = useRef(null);
-    const markersRef = useRef([]);
-    const mapInstance = useRef(null);
 
     // Filter venues based on search term
     const filteredVenues = venues.filter(
@@ -51,186 +47,53 @@ const Venues = () => {
     );
 
     useEffect(() => {
-        let isMounted = true;
-
-        const initializeGoogleMaps = async () => {
-            if (!window.google) {
-                try {
-                    const script = document.createElement("script");
-                    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-
-                    if (!apiKey) {
-                        throw new Error("Google Maps API key is missing");
-                    }
-
-                    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-                    script.async = true;
-                    script.defer = true;
-
-                    // Create a promise to wait for script to load
-                    await new Promise((resolve, reject) => {
-                        script.onload = resolve;
-                        script.onerror = () =>
-                            reject(
-                                new Error("Failed to load Google Maps script"),
-                            );
-                        document.head.appendChild(script);
-                    });
-                } catch (error) {
-                    console.error("Error loading Google Maps:", error);
-                    setMapError("Failed to load Google Maps");
-                    return;
-                }
-            }
-
-            try {
-                // Initialize map only if component is still mounted
-                if (isMounted && mapRef.current && !mapInstance.current) {
-                    mapInstance.current = new window.google.maps.Map(
-                        mapRef.current,
-                        {
-                            center: MELBOURNE_CENTER,
-                            zoom: 11,
-                            styles: [
-                                {
-                                    featureType: "poi",
-                                    elementType: "labels",
-                                    stylers: [{ visibility: "off" }],
-                                },
-                            ],
-                        },
-                    );
-                }
-            } catch (error) {
-                console.error("Map initialization error:", error);
-                if (isMounted) {
-                    setMapError("Failed to initialize map");
-                }
-            }
-        };
-
-        const handleAddVenue = async (data) => {
-            try {
-                const venueData = {
-                    venue_id: `VENUE_${Date.now()}`,
-                    ...data,
-                };
-
-                const response = await venueService.createVenue(venueData);
-                setVenue((prev) => [...prev, response.data]);
-                setShowAddForm(false);
-                toast.success("Venue created successfully");
-            } catch (error) {
-                console.error("Error creating venue:", error);
-                toast.error(
-                    error.response?.data?.message ||
-                        "Failed to create venue. Please try again.",
-                );
-            }
-        };
-
         const fetchVenues = async () => {
             try {
                 setLoading(true);
                 const response = await venueService.getAllVenues();
-                if (isMounted) {
-                    const venuesData = Array.isArray(response.data)
-                        ? response.data
-                        : response.data.results || [];
-                    setVenue(venuesData);
-                    await initializeGoogleMaps();
-                    if (mapInstance.current) {
-                        updateMapMarkers(venuesData);
-                    }
-                }
+                const venuesData = Array.isArray(response.data)
+                    ? response.data
+                    : response.data.results || [];
+                setVenues(venuesData);
             } catch (error) {
                 console.error("Error fetching venues:", error);
-                if (isMounted) {
-                    setMapError("Failed to load venues data");
-                }
+                toast.error("Failed to load venues");
             } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
+                setLoading(false);
             }
         };
 
         fetchVenues();
-
-        return () => {
-            isMounted = false;
-            if (markersRef.current) {
-                markersRef.current.forEach((marker) => marker.setMap(null));
-            }
-        };
     }, []);
 
-    const updateMapMarkers = (venuesData) => {
-        // Clear existing markers
-        markersRef.current.forEach((marker) => marker.setMap(null));
-        markersRef.current = [];
+    const handleAddVenue = async (venueData) => {
+        try {
+            // Log the data being sent
+            console.log("Creating venue with data:", venueData);
 
-        const bounds = new window.google.maps.LatLngBounds();
-
-        venuesData.forEach((venue) => {
-            try {
-                let position;
-                if (venue.location) {
-                    const [lat, lng] = venue.location
-                        .split(",")
-                        .map((coord) => parseFloat(coord.trim()));
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        position = { lat, lng };
-                    }
-                }
-
-                if (position) {
-                    const marker = new window.google.maps.Marker({
-                        position,
-                        map: mapInstance.current,
-                        title: venue.venue_name,
-                        icon: {
-                            path: window.google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: "#2196F3",
-                            fillOpacity: 1,
-                            strokeWeight: 2,
-                            strokeColor: "#FFFFFF",
-                        },
-                    });
-
-                    const infoWindow = new window.google.maps.InfoWindow({
-                        content: `
-                            <div class="p-4">
-                                <h3 class="font-semibold text-lg mb-2">${venue.venue_name}</h3>
-                                <p class="text-gray-600">Capacity: ${venue.capacity}</p>
-                                <p class="text-gray-600 mt-1">${venue.location}</p>
-                            </div>
-                        `,
-                    });
-
-                    marker.addListener("click", () => {
-                        infoWindow.open(mapInstance.current, marker);
-                    });
-
-                    markersRef.current.push(marker);
-                    bounds.extend(position);
-                }
-            } catch (error) {
-                console.warn(
-                    `Error processing venue ${venue.venue_name}:`,
-                    error,
-                );
-            }
-        });
-
-        if (markersRef.current.length > 0) {
-            mapInstance.current.fitBounds(bounds);
-            const listener = mapInstance.current.addListener("idle", () => {
-                if (mapInstance.current.getZoom() > 15)
-                    mapInstance.current.setZoom(15);
-                window.google.maps.event.removeListener(listener);
+            const response = await venueService.createVenue({
+                venue_id: venueData.venue_id,
+                venue_name: venueData.venue_name,
+                capacity: parseInt(venueData.capacity, 10),
+                location: venueData.location,
             });
+
+            setVenues((prev) => [...prev, response.data]);
+            setShowAddForm(false);
+            toast.success("Venue created successfully");
+        } catch (error) {
+            console.error("Error creating venue:", error);
+            console.error("Error response:", error.response?.data);
+
+            // Show more specific error message
+            const errorMessage =
+                error.response?.data?.message ||
+                error.response?.data?.error ||
+                error.message ||
+                "Failed to create venue";
+
+            toast.error(errorMessage);
+            throw error;
         }
     };
 
@@ -267,7 +130,7 @@ const Venues = () => {
                         </button>
                     </div>
                     <Button onClick={() => setShowAddForm(true)}>
-                        <Plus className="w-full h-4" />
+                        <Plus className="w-4 h-4 mr-2" />
                         Add Venue
                     </Button>
                 </div>
@@ -286,8 +149,18 @@ const Venues = () => {
             </div>
 
             {viewMode === "map" ? (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden mt-6">
-                    <SimpleMap venues={venues} />
+                /* Map View */
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden mt-6 mb-6">
+                    <LocationMap
+                        location={MELBOURNE_CENTER}
+                        height="458px"
+                        markers={venues.map((venue) => ({
+                            position: venue.location
+                                ?.split(",")
+                                .map((coord) => parseFloat(coord.trim())),
+                            title: venue.venue_name,
+                        }))}
+                    />
                 </div>
             ) : (
                 /* Grid View */
@@ -333,7 +206,7 @@ const Venues = () => {
                                             );
                                         }}
                                     >
-                                        <Map className="w-full h-4" />
+                                        <Map className="w-4 h-4 mr-2" />
                                         View on Maps
                                     </Button>
                                 </div>
@@ -343,7 +216,7 @@ const Venues = () => {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-4 mt-8">
+                        <div className="flex justify-center items-center gap-4 mt-8 mb-8">
                             <button
                                 onClick={() =>
                                     setCurrentPage((p) => Math.max(1, p - 1))
@@ -385,24 +258,7 @@ const Venues = () => {
             {/* Modals */}
             <VenueForm
                 isOpen={showAddForm}
-                onSubmit={async (data) => {
-                    try {
-                        const response = await venueService.createVenue(data);
-                        setVenue((prev) => [...prev, response.data]);
-                        setShowAddForm(false);
-                        // Update markers
-                        if (mapInstance.current) {
-                            updateMapMarkers([...venues, response.data]);
-                        }
-                    } catch (error) {
-                        console.error("Error adding venue:", error);
-                        // Show error to user
-                        alert(
-                            error.response?.data?.message ||
-                                "Failed to create venue",
-                        );
-                    }
-                }}
+                onSubmit={handleAddVenue}
                 onClose={() => setShowAddForm(false)}
             />
 

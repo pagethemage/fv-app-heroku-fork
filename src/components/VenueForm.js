@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import Button from "./Button";
-import { PlusCircle, MapPin, Users, HomeIcon } from "lucide-react";
+import { PlusCircle, MapPin, Users } from "lucide-react";
 import AddressInput from "./AddressInput";
 import Popup from "./Popup";
 
 const VenueForm = ({ isOpen, onSubmit, onClose }) => {
     const [formData, setFormData] = useState({
+        venue_id: `VENUE_${Date.now()}`,
         venue_name: "",
         capacity: "",
         location: "",
@@ -16,7 +17,15 @@ const VenueForm = ({ isOpen, onSubmit, onClose }) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await onSubmit(formData);
+            // Convert capacity to number
+            const venueData = {
+                ...formData,
+                capacity: parseInt(formData.capacity, 10),
+            };
+            await onSubmit(venueData);
+        } catch (error) {
+            console.error("Form submission error:", error);
+            throw error;
         } finally {
             setSubmitting(false);
         }
@@ -52,7 +61,7 @@ const VenueForm = ({ isOpen, onSubmit, onClose }) => {
                             className="w-full pl-10 pr-4 py-2 rounded-md border focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             placeholder="Enter venue name"
                         />
-                        <HomeIcon
+                        <MapPin
                             className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                             size={18}
                         />
@@ -71,6 +80,12 @@ const VenueForm = ({ isOpen, onSubmit, onClose }) => {
                                 location: value,
                             }))
                         }
+                        onLocationSelect={(location) => {
+                            setFormData((prev) => ({
+                                ...prev,
+                                location: `${location.coordinates.lat},${location.coordinates.lng}`,
+                            }));
+                        }}
                         placeholder="Enter venue address"
                     />
                 </div>
