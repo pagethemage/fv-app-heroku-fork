@@ -13,10 +13,12 @@ import {
     Mail,
     Calendar,
     Trophy,
-    Clock,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import TeamDetailsModal from "../components/TeamDetailsModal";
-import Popup from "../components/Popup";
+
+const ITEMS_PER_PAGE = 9; // Match the Venues page pagination
 
 const Teams = () => {
     const [teams, setTeams] = useState([]);
@@ -24,16 +26,22 @@ const Teams = () => {
     const [error, setError] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all"); // 'all', 'active', 'inactive'
+    const [currentPage, setCurrentPage] = useState(1);
 
-    // Filter teams based on search and status
+    // Filter teams based on search
     const filteredTeams = teams.filter((team) => {
         const matchesSearch =
             team.club_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             team.contact_name?.toLowerCase().includes(searchTerm.toLowerCase());
-        if (filterStatus === "all") return matchesSearch;
         return matchesSearch;
     });
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredTeams.length / ITEMS_PER_PAGE);
+    const paginatedTeams = filteredTeams.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE,
+    );
 
     useEffect(() => {
         const fetchTeams = async () => {
@@ -54,6 +62,11 @@ const Teams = () => {
 
         fetchTeams();
     }, []);
+
+    // Reset to first page when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
 
     if (loading) {
         return <LoadingSpinner message="Loading teams..." />;
@@ -76,44 +89,10 @@ const Teams = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <>
             {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <TitleWithBar title="Teams" />
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm p-1">
-                        <button
-                            onClick={() => setFilterStatus("all")}
-                            className={`px-4 py-2 rounded-md transition-colors ${
-                                filterStatus === "all"
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            All Teams
-                        </button>
-                        <button
-                            onClick={() => setFilterStatus("active")}
-                            className={`px-4 py-2 rounded-md transition-colors ${
-                                filterStatus === "active"
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Active
-                        </button>
-                        <button
-                            onClick={() => setFilterStatus("inactive")}
-                            className={`px-4 py-2 rounded-md transition-colors ${
-                                filterStatus === "inactive"
-                                    ? "bg-blue-100 text-blue-600"
-                                    : "text-gray-600 hover:bg-gray-100"
-                            }`}
-                        >
-                            Inactive
-                        </button>
-                    </div>
-                </div>
             </div>
 
             {/* Search Bar */}
@@ -123,14 +102,14 @@ const Teams = () => {
                     placeholder="Search teams by name or contact..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-500 focus:ring-0 bg-white shadow-sm"
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 transform -translate-y-1/2" />
             </div>
 
             {/* Teams Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTeams.map((team) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                {paginatedTeams.map((team) => (
                     <div
                         key={team.club_id}
                         onClick={() => setSelectedTeam(team)}
@@ -202,9 +181,46 @@ const Teams = () => {
                             No teams found
                         </h3>
                         <p className="text-gray-500">
-                            Try adjusting your search or filters
+                            Try adjusting your search criteria
                         </p>
                     </div>
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-8 mb-8">
+                    <button
+                        onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className={`p-2 rounded-lg ${
+                            currentPage === 1
+                                ? "text-gray-300"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <span className="text-gray-600">
+                        Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                        onClick={() =>
+                            setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={currentPage === totalPages}
+                        className={`p-2 rounded-lg ${
+                            currentPage === totalPages
+                                ? "text-gray-300"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
                 </div>
             )}
 
@@ -215,7 +231,7 @@ const Teams = () => {
                     onClose={() => setSelectedTeam(null)}
                 />
             )}
-        </div>
+        </>
     );
 };
 
