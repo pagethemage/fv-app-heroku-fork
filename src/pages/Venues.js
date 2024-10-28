@@ -130,7 +130,7 @@ const Venues = () => {
                         </button>
                     </div>
                     <Button onClick={() => setShowAddForm(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
+                        <Plus className="w-full h-4" />
                         Add Venue
                     </Button>
                 </div>
@@ -206,7 +206,7 @@ const Venues = () => {
                                             );
                                         }}
                                     >
-                                        <Map className="w-4 h-4 mr-2" />
+                                        <Map className="w-full h-4" />
                                         View on Maps
                                     </Button>
                                 </div>
