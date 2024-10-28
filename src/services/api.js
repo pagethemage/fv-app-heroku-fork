@@ -118,42 +118,40 @@ export const appointmentService = {
                 appointment_id: appointmentData.appointment_id,
                 referee: appointmentData.referee,
                 venue: appointmentData.venue,
-                match: appointmentData.match || undefined,
+                match: appointmentData.match,
                 appointment_date: appointmentData.appointment_date,
-                appointment_time: appointmentData.appointment_time.includes(':') ?
-                    appointmentData.appointment_time :
-                    `${appointmentData.appointment_time}:00`,
-                status: 'upcoming',
-                distance: appointmentData.distance || 0
+                // Add null check for appointment_time
+                appointment_time: appointmentData.appointment_time
+                    ? appointmentData.appointment_time.includes(":")
+                        ? appointmentData.appointment_time
+                        : `${appointmentData.appointment_time}:00`
+                    : "00:00:00", // Default time if null
+                status: "upcoming",
+                distance: appointmentData.distance || 0,
             };
 
-            console.log('Submitting appointment data:', formattedData);
+            console.log(
+                "Submitting formatted appointment data:",
+                formattedData,
+            );
 
             const response = await api.post("/appointments/", formattedData);
             return response.data;
         } catch (error) {
-            console.error('Appointment creation error:', error);
-            console.error('Error response:', error.response?.data);
+            console.error("Appointment creation error:", error);
+            console.error("Error response:", error.response?.data);
 
-            // Handle different error formats
-            let errorMessage = 'Failed to create appointment';
+            // Improve error handling
+            let errorMessage = "Failed to create appointment";
 
-            if (error.response?.data?.error) {
-                const errorData = error.response.data.error;
-
-                if (typeof errorData === 'string') {
-                    errorMessage = errorData;
-                } else if (typeof errorData === 'object') {
-                    // Handle nested error objects
-                    errorMessage = Object.entries(errorData)
-                        .map(([field, errors]) => {
-                            const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
-                            return `${field}: ${errorText}`;
-                        })
-                        .join('\n');
+            if (error.response?.data) {
+                if (typeof error.response.data === "string") {
+                    errorMessage = error.response.data;
+                } else if (error.response.data.error) {
+                    errorMessage = error.response.data.error;
+                } else if (error.response.data.detail) {
+                    errorMessage = error.response.data.detail;
                 }
-            } else if (error.response?.status === 500) {
-                errorMessage = 'Internal server error. Please try again later.';
             }
 
             throw new Error(errorMessage);

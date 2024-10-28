@@ -17,7 +17,7 @@ class Appointment(models.Model):
     match = models.ForeignKey('Match', models.DO_NOTHING, null=True, blank=True)
     distance = models.FloatField(default=0)
     appointment_date = models.DateField(default=timezone.now)
-    appointment_time = models.TimeField(default=timezone.now)
+    appointment_time = models.TimeField(null=True, default='00:00:00')
     upcoming = "upcoming"
     ongoing = "ongoing"
     complete = "complete"

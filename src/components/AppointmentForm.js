@@ -79,37 +79,25 @@ const AppointmentForm = ({ isOpen, onClose, onSubmit }) => {
             setLoading(true);
             setError(null);
 
-            // Validate required fields
-            const requiredFields = ["referee_id", "match_id"];
-            const missingFields = requiredFields.filter(
-                (field) => !formData[field],
-            );
-
-            if (missingFields.length > 0) {
-                throw new Error(
-                    `Please fill in all required fields: ${missingFields.join(
-                        ", ",
-                    )}`,
-                );
-            }
-
-            // Find selected match to get its date and venue
+            // Find selected match
             const selectedMatch = matches.find(
                 (match) => match.match_id === formData.match_id,
             );
+
             if (!selectedMatch) {
                 throw new Error("Selected match not found");
             }
 
-            // Submit with match data
+            // Create submission data with required fields
             const submissionData = {
                 appointment_id: formData.appointment_id,
                 referee: formData.referee_id,
                 match: formData.match_id,
                 venue: selectedMatch.venue.venue_id, // Use venue from match
                 appointment_date: selectedMatch.match_date, // Use date from match
-                appointment_time: selectedMatch.match_time, // Use time from match
+                appointment_time: selectedMatch.match_time || "00:00:00", // Use time from match
                 status: "upcoming",
+                distance: 0,
             };
 
             console.log("Submitting appointment data:", submissionData);
