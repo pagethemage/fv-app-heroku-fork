@@ -85,6 +85,11 @@ const Dashboard = () => {
         );
     }
 
+    const handleViewMatch = (appointment) => {
+        console.log("Setting selected match:", appointment);
+        setSelectedMatch(appointment);
+    };
+
     return (
         <>
             <div className="flex justify-between items-center">
@@ -100,9 +105,27 @@ const Dashboard = () => {
 
             {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatsCard title="Total Appointments" value={meta.count || 0} color="text-blue-600" />
-                <StatsCard title="Pending" value={appointments.filter((a) => a.status === "pending").length} color="text-yellow-600" />
-                <StatsCard title={"Confirmed"} value={appointments.filter((a) => a.status === "confirmed").length} color={"text-green-600"} />
+                <StatsCard
+                    title="Total Appointments"
+                    value={meta.count || 0}
+                    color="text-blue-600"
+                />
+                <StatsCard
+                    title="Pending"
+                    value={
+                        appointments.filter((a) => a.status === "pending")
+                            .length
+                    }
+                    color="text-yellow-600"
+                />
+                <StatsCard
+                    title={"Confirmed"}
+                    value={
+                        appointments.filter((a) => a.status === "confirmed")
+                            .length
+                    }
+                    color={"text-green-600"}
+                />
             </div>
 
             {/* Main Content */}
@@ -113,7 +136,7 @@ const Dashboard = () => {
                     <>
                         <AppointmentTable
                             appointments={appointments}
-                            onViewMatch={setSelectedMatch}
+                            onViewMatch={handleViewMatch}
                         />
 
                         {/* Pagination */}

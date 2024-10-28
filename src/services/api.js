@@ -158,14 +158,35 @@ export const appointmentService = {
         }
     },
 
-    updateAppointment: async (id, data) => {
+    updateAppointment: async (appointmentId, data) => {
         try {
-            const response = await api.put(`/appointments/${id}/`, data);
-            return response.data;
+            console.log('Updating appointment:', appointmentId, 'with data:', data);
+
+            // Format the data to match backend expectations
+            const formattedData = {
+                appointment_id: appointmentId,
+                referee: data.referee,
+                venue: data.venue,
+                match: data.match,
+                status: data.status,
+                decline_reason: data.decline_reason,
+                appointment_date: data.appointment_date,
+                appointment_time: data.appointment_time,
+                distance: data.distance || 0
+            };
+
+            const response = await api.put(`/appointments/${appointmentId}/`, formattedData);
+            return response;
         } catch (error) {
-            throw new Error(
-                error.response?.data?.error || "Failed to update appointment",
-            );
+            console.error('Error updating appointment:', error);
+            console.error('Error response:', error.response?.data);
+
+            // Enhance error handling
+            const errorMessage = error.response?.data?.detail ||
+                               error.response?.data?.error ||
+                               'An error occurred while updating the appointment';
+
+            throw new Error(errorMessage);
         }
     },
 
@@ -299,9 +320,14 @@ export const matchService = {
 
     getMatch: async (id) => {
         try {
-            const response = await api.get(`/matches/${id}/`);
+            const response = await api.get(`/matches/${id}/`, {
+                timeout: 5000, // 5 second timeout
+            });
             return response.data;
         } catch (error) {
+            if (error.code === "ECONNABORTED") {
+                throw new Error("Request timed out - please try again");
+            }
             throw new Error(
                 error.response?.data?.error || "Failed to fetch match details",
             );
