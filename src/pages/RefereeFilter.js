@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import TitleWithBar from "../components/TitleWithBar";
-import Button from "../components/Button";
-import { RefreshCw, Search, MapPin } from "lucide-react";
+import { useRefereeFilter } from "../hooks/useRefereeFilter";
 import {
     geocodeAddress,
     calculateDistance,
     formatDistance,
 } from "../utils/geocoding";
+import { MapManager } from "../utils/mapManager";
+import TitleWithBar from "../components/TitleWithBar";
+import Button from "../components/Button";
 import AddressInput from "../components/AddressInput";
-import { refereeService } from "../services/api";
 import { toast } from "react-toastify";
+import { Search } from "lucide-react";
 import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorDisplay from "../components/ErrorDisplay";
 
@@ -17,142 +18,85 @@ const MELBOURNE_CENTER = { lat: -37.8136, lng: 144.9631 };
 
 const RefereeFilter = () => {
     const mapRef = useRef(null);
+    const mapManagerRef = useRef(null);
     const [map, setMap] = useState(null);
     const [markers, setMarkers] = useState([]);
-    const [searchLocation, setSearchLocation] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
-    const [referees, setReferees] = useState([]);
-    const [venues, setVenues] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [mapError, setMapError] = useState(null);
 
-    const [filters, setFilters] = useState({
-        availability: false,
-        level: "",
-        minAge: "",
-        minExperience: "",
-        distance: 50,
-        address: "",
-    });
+    const {
+        filteredReferees,
+        loading,
+        error,
+        filters,
+        updateFilters,
+        applyFilters,
+        resetFilters,
+        fetchReferees,
+    } = useRefereeFilter();
 
-    const [filteredReferees, setFilteredReferees] = useState(referees);
-
+    // Initialize Google Maps
     useEffect(() => {
-        const fetchReferees = async () => {
+        const initializeMap = async () => {
             try {
-                setLoading(true);
-                setError(null);
-                const response = await refereeService.getAllReferees();
-
-                if (!response?.data) {
-                    throw new Error("No data received from server");
+                // Create new MapManager instance if it doesn't exist
+                if (!mapManagerRef.current) {
+                    mapManagerRef.current = new MapManager();
                 }
 
-                // Process the referee data
-                const refereesData = Array.isArray(response.data)
-                    ? response.data
-                    : response.data.results || [];
+                // Initialize the map
+                const mapInstance = await mapManagerRef.current.initializeMap(
+                    mapRef.current,
+                    {
+                        center: MELBOURNE_CENTER,
+                        zoom: 11,
+                        styles: [
+                            {
+                                featureType: "poi",
+                                elementType: "labels",
+                                stylers: [{ visibility: "off" }],
+                            },
+                        ],
+                    },
+                );
 
-                // Transform referee data to include location coordinates
-                const processedReferees = refereesData
-                    .map((referee) => {
-                        let location = null;
-                        try {
-                            if (referee.location) {
-                                const [lat, lng] = referee.location
-                                    .split(",")
-                                    .map((coord) => parseFloat(coord.trim()));
-                                if (!isNaN(lat) && !isNaN(lng)) {
-                                    location = { lat, lng };
-                                }
-                            }
-                        } catch (e) {
-                            console.warn(
-                                `Invalid location data for referee ${referee.referee_id}`,
-                            );
-                        }
-
-                        return {
-                            id: referee.referee_id,
-                            firstName: referee.first_name,
-                            lastName: referee.last_name,
-                            level: referee.level,
-                            experienceYears: referee.experience_years,
-                            location,
-                            isAvailable: true, // TODO: Implement proper availability check
-                        };
-                    })
-                    .filter((referee) => referee.location !== null); // Only include referees with valid locations
-
-                console.log("Processed referees:", processedReferees);
-                setReferees(processedReferees);
-                setFilteredReferees(processedReferees);
+                setMap(mapInstance);
+                setMapError(null);
             } catch (err) {
-                console.error("Error fetching referees:", err);
-                setError(err.message || "Failed to load referees");
-            } finally {
-                setLoading(false);
+                console.error("Map initialization error:", err);
+                setMapError(err.message || "Failed to load map");
             }
         };
 
-        fetchReferees();
-    }, []);
+        if (mapRef.current) {
+            initializeMap();
+        }
 
-    // Load Google Maps API
-    useEffect(() => {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        script.onload = initializeMap;
-        script.onerror = () => setError("Failed to load Google Maps");
-        document.head.appendChild(script);
-
+        // Cleanup
         return () => {
-            document.head.removeChild(script);
+            if (mapManagerRef.current) {
+                mapManagerRef.current.cleanup();
+            }
             if (markers.length > 0) {
                 markers.forEach((marker) => marker.setMap(null));
             }
         };
     }, []);
 
-    // Initialize the map
-    const initializeMap = () => {
-        if (!mapRef.current || !window.google) return;
-
-        try {
-            const newMap = new window.google.maps.Map(mapRef.current, {
-                center: MELBOURNE_CENTER,
-                zoom: 12,
-                styles: [
-                    {
-                        featureType: "poi",
-                        elementType: "labels",
-                        stylers: [{ visibility: "off" }],
-                    },
-                ],
-            });
-            setMap(newMap);
-        } catch (err) {
-            console.error("Error initializing map:", err);
-            setError("Failed to initialize map");
-        }
-    };
-
-    // Update markers when map or filtered referees change
+    // Update map markers when filtered referees change
     useEffect(() => {
         if (!map || !filteredReferees?.length) return;
 
         try {
             // Clear existing markers
             markers.forEach((marker) => marker.setMap(null));
-            const newMarkers = [];
             const bounds = new window.google.maps.LatLngBounds();
+            const newMarkers = [];
 
             // Add search location marker if exists
-            if (searchLocation) {
+            if (filters.coordinates) {
                 const searchMarker = new window.google.maps.Marker({
-                    position: searchLocation,
+                    position: filters.coordinates,
                     map: map,
                     title: "Search Location",
                     icon: {
@@ -165,16 +109,16 @@ const RefereeFilter = () => {
                     },
                 });
                 newMarkers.push(searchMarker);
-                bounds.extend(searchLocation);
+                bounds.extend(filters.coordinates);
             }
 
             // Add referee markers
             filteredReferees.forEach((referee) => {
-                if (referee.location) {
+                if (referee.coordinates) {
                     const marker = new window.google.maps.Marker({
-                        position: referee.location,
+                        position: referee.coordinates,
                         map: map,
-                        title: `${referee.firstName} ${referee.lastName}`,
+                        title: `${referee.first_name} ${referee.last_name}`,
                         icon: {
                             path: window.google.maps.SymbolPath.CIRCLE,
                             scale: 8,
@@ -191,24 +135,22 @@ const RefereeFilter = () => {
                         content: `
                             <div class="p-2">
                                 <h3 class="font-semibold">${
-                                    referee.firstName
-                                } ${referee.lastName}</h3>
+                                    referee.first_name
+                                } ${referee.last_name}</h3>
                                 <p>Level: ${referee.level}</p>
                                 <p>Experience: ${
-                                    referee.experienceYears
+                                    referee.experience_years
                                 } years</p>
                                 ${
-                                    searchLocation
-                                        ? `
-                                    <p>Distance: ${formatDistance(
-                                        calculateDistance(
-                                            searchLocation.lat,
-                                            searchLocation.lng,
-                                            referee.location.lat,
-                                            referee.location.lng,
-                                        ),
-                                    )}</p>
-                                `
+                                    filters.coordinates
+                                        ? `<p>Distance: ${formatDistance(
+                                              calculateDistance(
+                                                  filters.coordinates.lat,
+                                                  filters.coordinates.lng,
+                                                  referee.coordinates.lat,
+                                                  referee.coordinates.lng,
+                                              ),
+                                          )}</p>`
                                         : ""
                                 }
                             </div>
@@ -216,25 +158,20 @@ const RefereeFilter = () => {
                     });
 
                     marker.addListener("click", () => {
-                        // Close any open info windows
                         markers.forEach((m) => m.infoWindow?.close());
                         infoWindow.open(map, marker);
                     });
 
-                    // Store the info window with the marker
                     marker.infoWindow = infoWindow;
                     newMarkers.push(marker);
-                    bounds.extend(referee.location);
+                    bounds.extend(referee.coordinates);
                 }
             });
 
-            // Update markers state
             setMarkers(newMarkers);
 
-            // Only fit bounds if we have markers
             if (newMarkers.length > 0) {
                 map.fitBounds(bounds);
-                // Add a slight zoom out to give some padding
                 const listener = map.addListener("idle", () => {
                     if (map.getZoom() > 15) map.setZoom(15);
                     window.google.maps.event.removeListener(listener);
@@ -244,76 +181,95 @@ const RefereeFilter = () => {
             console.error("Error updating markers:", err);
             toast.error("Error updating map markers");
         }
-    }, [map, filteredReferees, searchLocation]);
+    }, [map, filteredReferees, filters.coordinates]);
+    // Fetch initial referee data
+    useEffect(() => {
+        fetchReferees();
+    }, [fetchReferees]);
 
-    const handleFilterChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFilters((prev) => ({
-            ...prev,
-            [name]: type === "checkbox" ? checked : value,
-        }));
+    const handleAddressSelect = async (location) => {
+        if (location?.coordinates) {
+            updateFilters({
+                address: location.formattedAddress,
+                coordinates: location.coordinates,
+            });
+            applyFilters(location.coordinates);
+        }
     };
 
     const handleSearch = async () => {
-        if (!filters.address) return;
+        if (!filters.address) {
+            toast.warn("Please enter an address to search");
+            return;
+        }
 
         setIsSearching(true);
         try {
-            const result = await geocodeAddress(filters.address);
-            if (result) {
-                setSearchLocation(result.coordinates);
-                // Center map on search location
+            const geocodeResult = await geocodeAddress(filters.address);
+            if (geocodeResult) {
+                handleAddressSelect(geocodeResult);
                 if (map) {
-                    map.setCenter(result.coordinates);
+                    map.setCenter(geocodeResult.coordinates);
                     map.setZoom(12);
                 }
+            } else {
+                toast.error("Couldn't find the specified address");
             }
         } catch (error) {
-            console.error("Geocoding error:", error);
+            toast.error("Error geocoding address");
         } finally {
             setIsSearching(false);
         }
     };
 
-    const handleApplyFilters = async () => {
-        try {
-            setLoading(true);
-            // Send filter parameters to backend
-            const response = await refereeService.getRefereesByFilters({
-                availability: filters.availability,
-                level: filters.level,
-                minAge: filters.minAge,
-                minExperience: filters.minExperience,
-                distance: filters.distance,
-                searchLocation: searchLocation,
-            });
+    const handleFilterChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        const newValue = type === "checkbox" ? checked : value;
+        updateFilters({ [name]: newValue });
+    };
 
-            setFilteredReferees(response.data);
-        } catch (err) {
-            console.error("Error applying filters:", err);
-            toast.error("Failed to apply filters");
-        } finally {
-            setLoading(false);
+    const handleApplyFilters = () => {
+        applyFilters(filters.coordinates);
+    };
+
+    const handleReset = () => {
+        resetFilters();
+        if (map) {
+            map.setCenter(MELBOURNE_CENTER);
+            map.setZoom(11);
         }
     };
 
-    const resetFilters = () => {
-        setFilters({
-            availability: false,
-            level: "",
-            minAge: "",
-            minExperience: "",
-            distance: 50,
-            address: "",
-        });
-        setSearchLocation(null);
-        setFilteredReferees(referees);
-
-        // Reset map view
-        if (map) {
-            map.setCenter({ lat: -37.8136, lng: 144.9631 });
-            map.setZoom(12);
+    const renderMap = () => {
+        if (mapError) {
+            return (
+                <ErrorDisplay
+                    error={mapError}
+                    message="Failed to load map"
+                    onRetry={() => {
+                        setMapError(null);
+                        if (mapManagerRef.current) {
+                            mapManagerRef.current.cleanup();
+                        }
+                        if (mapRef.current) {
+                            mapManagerRef.current = new MapManager();
+                            mapManagerRef.current.initializeMap(mapRef.current);
+                        }
+                    }}
+                />
+            );
         }
+
+        return (
+            <div className="relative">
+                <div ref={mapRef} className="w-full h-[500px] rounded-lg" />
+                {loading && (
+                    <div className="absolute inset-0 bg-white bg-opacity-75 z-10 flex items-center justify-center">
+                        <LoadingSpinner message="Loading map data..." />
+                    </div>
+                )}
+            </div>
+        );
     };
 
     if (error) {
@@ -327,12 +283,10 @@ const RefereeFilter = () => {
     }
 
     return (
-        <div className="">
-            <div className="flex justify-between items-center">
-                <TitleWithBar title="Referee Filter" />
-            </div>
+        <>
+            <TitleWithBar title="Referee Filter" />
 
-            {/* Filters */}
+            {/* Filters Panel */}
             <div className="bg-white rounded-lg shadow-lg p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Location Search */}
@@ -344,23 +298,14 @@ const RefereeFilter = () => {
                             <AddressInput
                                 value={filters.address}
                                 onChange={(value) =>
-                                    setFilters((prev) => ({
-                                        ...prev,
-                                        address: value,
-                                    }))
+                                    updateFilters({ address: value })
                                 }
-                                onLocationSelect={(location) => {
-                                    setSearchLocation(location.coordinates);
-                                    if (map) {
-                                        map.setCenter(location.coordinates);
-                                        map.setZoom(12);
-                                    }
-                                }}
+                                onLocationSelect={handleAddressSelect}
                                 isSearching={isSearching}
                             />
                             <Button
                                 onClick={handleSearch}
-                                disabled={isSearching}
+                                disabled={loading || isSearching}
                             >
                                 <Search className="w-4 h-4" />
                             </Button>
@@ -402,7 +347,7 @@ const RefereeFilter = () => {
                         </select>
                     </div>
 
-                    {/* Minimum Age Filter */}
+                    {/* Age Filter */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Minimum Age
@@ -449,16 +394,14 @@ const RefereeFilter = () => {
                     </div>
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-6 space-y-2">
                     <Button
-                        onClick={resetFilters}
+                        onClick={handleReset}
                         className="w-full"
                         variant="secondary"
                     >
                         Reset Filters
                     </Button>
-                </div>
-                <div className="mt-2">
                     <Button
                         onClick={handleApplyFilters}
                         className="w-full"
@@ -469,14 +412,9 @@ const RefereeFilter = () => {
                 </div>
             </div>
 
-            {/* Map */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden relative mt-6">
-                {loading && (
-                    <div className="absolute inset-0 bg-white bg-opacity-75 z-10">
-                        <LoadingSpinner message="Loading map data..." />
-                    </div>
-                )}
-                <div ref={mapRef} className="w-full h-[500px]" />
+            {/* Map View */}
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden p-4 mt-6">
+                {renderMap()}
             </div>
 
             {/* Results */}
@@ -485,44 +423,44 @@ const RefereeFilter = () => {
                     Found {filteredReferees.length} matching referees
                 </h3>
 
-                {loading ? (
-                    <LoadingSpinner
-                        size="default"
-                        message="Loading results..."
-                    />
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredReferees.map((referee) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredReferees.length > 0 ? (
+                        filteredReferees.map((referee) => (
                             <div
-                                key={referee.id}
+                                key={referee.referee_id}
                                 className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow"
                             >
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <h4 className="font-medium">
-                                            {referee.firstName}{" "}
-                                            {referee.lastName}
+                                            {referee.first_name}{" "}
+                                            {referee.last_name}
                                         </h4>
                                         <p className="text-sm text-gray-600">
                                             Level: {referee.level}
                                         </p>
                                         <p className="text-sm text-gray-600">
                                             Experience:{" "}
-                                            {referee.experienceYears} years
+                                            {referee.experience_years} years
                                         </p>
-                                        {searchLocation && referee.location && (
-                                            <p className="text-sm text-gray-600">
-                                                Distance:{" "}
-                                                {formatDistance(
-                                                    calculateDistance(
-                                                        searchLocation.lat,
-                                                        searchLocation.lng,
-                                                        referee.location.lat,
-                                                        referee.location.lng,
-                                                    ),
-                                                )}
-                                            </p>
-                                        )}
+                                        {filters.coordinates &&
+                                            referee.coordinates && (
+                                                <p className="text-sm text-gray-600">
+                                                    Distance:{" "}
+                                                    {formatDistance(
+                                                        calculateDistance(
+                                                            filters.coordinates
+                                                                .lat,
+                                                            filters.coordinates
+                                                                .lng,
+                                                            referee.coordinates
+                                                                .lat,
+                                                            referee.coordinates
+                                                                .lng,
+                                                        ),
+                                                    )}
+                                                </p>
+                                            )}
                                     </div>
                                     <span
                                         className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -537,11 +475,15 @@ const RefereeFilter = () => {
                                     </span>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        ))
+                    ) : (
+                        <div className="col-span-full text-center py-8 text-gray-500">
+                            No referees found matching the selected criteria
+                        </div>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 

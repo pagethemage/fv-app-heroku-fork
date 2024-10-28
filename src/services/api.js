@@ -23,8 +23,17 @@ export const refereeService = {
     getRefereeProfile: (id) => api.get(`/referee/${id}/`),
     updateRefereeProfile: (id, data) => api.put(`/referee/${id}/`, data),
     getAllReferees: () => api.get("/referee/"),
-    getRefereesByFilters: (filters) =>
-        api.get("/referee/filter/", { params: filters }),
+    getRefereesByFilters: (filters) => {
+        const params = new URLSearchParams();
+
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== "") {
+                params.append(key, value);
+            }
+        });
+
+        return api.get(`/referee/filter/?${params.toString()}`);
+    },
 };
 
 // Appointment endpoints

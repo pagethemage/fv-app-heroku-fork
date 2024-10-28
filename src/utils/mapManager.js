@@ -12,63 +12,55 @@ export class MapManager {
     }
 
     async loadGoogleMaps() {
-        if (googleMapsPromise) {
-            return googleMapsPromise;
+        if (window.google?.maps) {
+            return window.google;
         }
 
-        googleMapsPromise = new Promise((resolve, reject) => {
-            try {
-                // Check if Google Maps is already loaded
-                if (window.google?.maps) {
-                    resolve(window.google);
-                    return;
-                }
+        const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+        if (!API_KEY) {
+            throw new Error(
+                "Google Maps API key is not configured. Please check your environment variables.",
+            );
+        }
 
-                const API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-                if (!API_KEY) {
-                    throw new Error("Google Maps API key is not configured");
-                }
-
-                // Create the script element
+        try {
+            await new Promise((resolve, reject) => {
                 const script = document.createElement("script");
-                const callback = "onGoogleMapsLoad";
-
-                // Define the callback function
-                window[callback] = () => {
-                    if (window.google?.maps) {
-                        resolve(window.google);
-                    } else {
-                        reject(new Error("Google Maps failed to load"));
-                    }
-                    delete window[callback];
-                };
-
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places&callback=${callback}`;
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
                 script.async = true;
                 script.defer = true;
 
-                script.onerror = () => {
+                script.addEventListener("load", () => {
+                    if (window.google?.maps) {
+                        resolve(window.google);
+                    } else {
+                        reject(
+                            new Error("Google Maps failed to load properly"),
+                        );
+                    }
+                });
+
+                script.addEventListener("error", () => {
                     reject(new Error("Failed to load Google Maps script"));
-                    delete window[callback];
-                };
+                });
 
                 document.head.appendChild(script);
-            } catch (error) {
-                reject(error);
-            }
-        });
+            });
 
-        return googleMapsPromise;
+            return window.google;
+        } catch (error) {
+            console.error("Error loading Google Maps:", error);
+            throw new Error("Failed to load Google Maps: " + error.message);
+        }
     }
 
     async initializeMap(mapElement, options = {}) {
         if (!mapElement) {
-            throw new Error("Map element is required");
+            throw new Error("Map container element is required");
         }
 
         try {
-            // Load Google Maps if not already loaded
-            await this.loadGoogleMaps();
+            const google = await this.loadGoogleMaps();
 
             // Clear any existing markers
             this.clearMarkers();
@@ -88,18 +80,18 @@ export class MapManager {
                 fullscreenControl: true,
             };
 
-            this.map = new window.google.maps.Map(mapElement, {
+            this.map = new google.maps.Map(mapElement, {
                 ...defaultOptions,
                 ...options,
             });
 
-            this.bounds = new window.google.maps.LatLngBounds();
+            this.bounds = new google.maps.LatLngBounds();
             this.isInitialized = true;
 
             return this.map;
         } catch (error) {
             console.error("Failed to initialize map:", error);
-            throw error;
+            throw new Error("Failed to initialize map: " + error.message);
         }
     }
 

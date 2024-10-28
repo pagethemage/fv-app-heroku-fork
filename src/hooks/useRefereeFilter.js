@@ -15,6 +15,7 @@ export const useRefereeFilter = () => {
         minExperience: "",
         distance: 50,
         address: "",
+        coordinates: null,
     });
 
     const fetchReferees = useCallback(async () => {
@@ -27,6 +28,7 @@ export const useRefereeFilter = () => {
                 ? response.data
                 : [];
 
+            // Geocode all referee addresses in batch
             const addressesToGeocode = refereeData.map((referee) => ({
                 id: referee.referee_id,
                 address: referee.location,
@@ -36,6 +38,7 @@ export const useRefereeFilter = () => {
                 addressesToGeocode,
             );
 
+            // Process referee data with geocoded coordinates
             const processedReferees = refereeData.map((referee) => {
                 const geocodeResult = geocodedResults.find(
                     (r) => r.id === referee.referee_id,
@@ -49,7 +52,6 @@ export const useRefereeFilter = () => {
 
             setReferees(processedReferees);
             setFilteredReferees(processedReferees);
-
             return processedReferees;
         } catch (err) {
             const errorMessage =
@@ -69,17 +71,21 @@ export const useRefereeFilter = () => {
             const filtered = referees.filter((referee) => {
                 if (!referee) return false;
 
-                const meetsAvailability =
-                    !filters.availability || referee.isAvailable;
+                // Basic filters
                 const meetsLevel =
                     !filters.level || referee.level === filters.level;
                 const meetsAge =
-                    !filters.minAge || referee.age >= parseInt(filters.minAge);
+                    !filters.minAge ||
+                    (referee.age && referee.age >= parseInt(filters.minAge));
                 const meetsExperience =
                     !filters.minExperience ||
-                    referee.experience_years >= parseInt(filters.minExperience);
+                    (referee.experience_years &&
+                        referee.experience_years >=
+                            parseInt(filters.minExperience));
+                const meetsAvailability =
+                    !filters.availability || referee.isAvailable;
 
-                // Check distance if search coordinates exist
+                // Distance filter
                 let meetsDistance = true;
                 if (
                     searchCoordinates &&
@@ -96,10 +102,10 @@ export const useRefereeFilter = () => {
                 }
 
                 return (
-                    meetsAvailability &&
                     meetsLevel &&
                     meetsAge &&
                     meetsExperience &&
+                    meetsAvailability &&
                     meetsDistance
                 );
             });
@@ -122,6 +128,7 @@ export const useRefereeFilter = () => {
             minExperience: "",
             distance: 50,
             address: "",
+            coordinates: null,
         });
         setFilteredReferees(referees);
     }, [referees]);
