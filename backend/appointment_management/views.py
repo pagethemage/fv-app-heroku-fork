@@ -319,6 +319,28 @@ class RefereeViewSet(viewsets.ModelViewSet):
     @action(detail=False)
     def filter(self, request):
         queryset = self.get_queryset()
+
+        level = request.query_params.get('level')
+        min_age = request.query_params.get('min_age')
+        min_experience = request.query_params.get('min_experience')
+        availability = request.query_params.get('availability')
+
+        if level:
+            queryset = queryset.filter(level=level)
+
+        if min_age:
+            queryset = queryset.filter(age__gte=int(min_age))
+
+        if min_experience:
+            queryset = queryset.filter(experience_years__gte=int(min_experience))
+
+        if availability and availability.lower() == 'true':
+            today = timezone.now().date()
+            queryset = queryset.filter(
+                availability__date=today,
+                availability__availableType='A'
+            )
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
