@@ -45,14 +45,26 @@ class ClubWriteSerializer(serializers.ModelSerializer):
 class RefereeSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.CharField(source='user.email', read_only=True)
+    is_staff = serializers.BooleanField(source='user.is_staff', read_only=True)
 
     class Meta:
         model = Referee
         fields = [
             'referee_id', 'username', 'email', 'first_name', 'last_name',
             'gender', 'age', 'location', 'zip_code', 'phone_number',
-            'experience_years', 'level'
+            'experience_years', 'level', 'is_staff'
         ]
+
+    def to_representation(self, instance):
+        # Get the base representation
+        ret = super().to_representation(instance)
+
+        # Ensure user data is included
+        if instance.user:
+            ret['is_staff'] = instance.user.is_staff
+            ret['username'] = instance.user.username
+            ret['email'] = instance.user.email
+        return ret
 
 class RefereeWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -113,17 +125,43 @@ class AppointmentSerializer(serializers.ModelSerializer):
             }
 
 class AppointmentWriteSerializer(serializers.ModelSerializer):
+    STATUS_CHOICES = (
+        ('upcoming', 'Upcoming'),
+        ('ongoing', 'Ongoing'),
+        ('complete', 'Complete'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    status = serializers.ChoiceField(choices=STATUS_CHOICES, default='upcoming')
+    match = serializers.PrimaryKeyRelatedField(
+        queryset=Match.objects.all(),
+        required=False,
+        allow_null=True
+    )
     class Meta:
         model = Appointment
         fields = [
             'appointment_id', 'referee', 'venue', 'match',
             'distance', 'appointment_date', 'appointment_time', 'status'
         ]
+        extra_kwargs = {
+            'referee': {'required': True},
+            'venue': {'required': True},
+            'appointment_date': {'required': True},
+            'appointment_time': {'required': True},
+        }
 
     def validate(self, data):
-        if data.get('appointment_date') and data.get('appointment_time'):
-            pass
+        # Ensure required fields are present
+        required_fields = ['referee', 'venue', 'appointment_date', 'appointment_time']
+        for field in required_fields:
+            if field not in data:
+                raise serializers.ValidationError({field: ["This field is required."]})
+
         return data
+
+    def create(self, validated_data):
+        return super().create(validated_data)
 
 class AvailabilitySerializer(serializers.ModelSerializer):
     referee = RefereeSerializer(read_only=True)

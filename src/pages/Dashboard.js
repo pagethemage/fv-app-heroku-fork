@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAppContext } from "../contexts/AppContext";
 import AppointmentTable from "../components/AppointmentTable";
+import AppointmentForm from "../components/AppointmentForm";
 import MatchDetails from "../components/MatchDetails";
 import TitleWithBar from "../components/TitleWithBar";
 import Button from "../components/Button";
@@ -8,7 +9,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import ErrorDisplay from "../components/ErrorDisplay";
 import { appointmentService } from "../services/api";
 import { toast } from "react-toastify";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 
 const Dashboard = () => {
     const [appointments, setAppointments] = useState([]);
@@ -17,6 +18,7 @@ const Dashboard = () => {
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [meta, setMeta] = useState({});
+    const [showAppointmentForm, setShowAppointmentForm] = useState(false);
     const { user } = useAppContext();
 
     const fetchAppointments = async (page = 1) => {
@@ -25,12 +27,6 @@ const Dashboard = () => {
             setError(null);
 
             const response = await appointmentService.getAllAppointments(page);
-
-            // Ensure we're getting an array for appointments
-            if (!Array.isArray(response.data)) {
-                throw new Error("Invalid response format from server");
-            }
-
             setAppointments(response.data);
             setMeta(response.meta);
         } catch (err) {
@@ -46,7 +42,32 @@ const Dashboard = () => {
         fetchAppointments(currentPage);
     }, [currentPage]);
 
-    // Stats cards component to reduce repetition
+    const handleCreateAppointment = async (appointmentData) => {
+        try {
+            console.log("Creating appointment with data:", appointmentData);
+            const response = await appointmentService.createAppointment(
+                appointmentData,
+            );
+
+            // Refresh the appointments list
+            await fetchAppointments(currentPage);
+
+            return response;
+        } catch (err) {
+            console.error("Appointment creation failed:", err);
+
+            // Format error message for display
+            const errorMessage =
+                typeof err === "object"
+                    ? err.message
+                    : "Failed to create appointment";
+            toast.error(errorMessage);
+
+            throw new Error(errorMessage);
+        }
+    };
+
+    // Stats cards component
     const StatsCard = ({ title, value, color }) => (
         <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold mb-2">{title}</h3>
@@ -65,36 +86,27 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="space-y-6">
-            <TitleWithBar title="Upcoming Appointments" />
+        <>
+            <div className="flex justify-between items-center">
+                <TitleWithBar title="Upcoming Appointments" />
+                {/* currently always visible, but should only be visible to staff */}
+                <div className="flex items-center gap-2">
+                    <Button onClick={() => setShowAppointmentForm(true)}>
+                        <Plus className="w-full h-4" />
+                        Create Appointment
+                    </Button>
+                </div>
+            </div>
 
             {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatsCard
-                    title="Total Appointments"
-                    value={meta.count || 0}
-                    color="text-blue-600"
-                />
-                <StatsCard
-                    title="Pending"
-                    value={
-                        appointments.filter((a) => a.status === "pending")
-                            .length
-                    }
-                    color="text-yellow-600"
-                />
-                <StatsCard
-                    title="Confirmed"
-                    value={
-                        appointments.filter((a) => a.status === "confirmed")
-                            .length
-                    }
-                    color="text-green-600"
-                />
+                <StatsCard title="Total Appointments" value={meta.count || 0} color="text-blue-600" />
+                <StatsCard title="Pending" value={appointments.filter((a) => a.status === "pending").length} color="text-yellow-600" />
+                <StatsCard title={"Confirmed"} value={appointments.filter((a) => a.status === "confirmed").length} color={"text-green-600"} />
             </div>
 
             {/* Main Content */}
-            <div className="bg-white rounded-lg shadow">
+            <div className="bg-white rounded-lg shadow my-6">
                 {loading ? (
                     <LoadingSpinner message="Loading appointments..." />
                 ) : (
@@ -137,6 +149,15 @@ const Dashboard = () => {
                 )}
             </div>
 
+            {/* Appointment Creation Form */}
+            {showAppointmentForm && (
+                <AppointmentForm
+                    isOpen={showAppointmentForm}
+                    onClose={() => setShowAppointmentForm(false)}
+                    onSubmit={handleCreateAppointment}
+                />
+            )}
+
             {/* Match Details Modal */}
             {selectedMatch && (
                 <MatchDetails
@@ -145,7 +166,7 @@ const Dashboard = () => {
                     onClose={() => setSelectedMatch(null)}
                 />
             )}
-        </div>
+        </>
     );
 };
 

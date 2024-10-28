@@ -77,7 +77,6 @@ const AppointmentTable = ({ appointments = [], onViewMatch }) => {
                 </thead>
                 <tbody>
                     {appointments.map((appointment) => {
-                        console.log("Rendering appointment:", appointment); // Debug log
                         return (
                             <tr
                                 key={

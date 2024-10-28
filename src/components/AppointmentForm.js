@@ -5,19 +5,21 @@ import LoadingSpinner from "./LoadingSpinner";
 import ErrorDisplay from "./ErrorDisplay";
 import TimePicker from "./TimePicker";
 import Popup from "./Popup";
-import { Users, MapPin, Calendar, Clock } from "lucide-react";
+import { PlusCircle, Calendar, MapPin, Users, Clock, Flag } from "lucide-react";
 import {
     appointmentService,
     venueService,
     refereeService,
+    matchService,
 } from "../services/api";
 import { toast } from "react-toastify";
 
 const AppointmentForm = ({ isOpen, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({
         appointment_id: `APP_${Date.now()}`,
-        referee: "",
-        venue: "",
+        referee_id: "",
+        venue_id: "",
+        match_id: "",
         appointment_date: "",
         appointment_time: "",
         status: "upcoming",
@@ -27,82 +29,172 @@ const AppointmentForm = ({ isOpen, onClose, onSubmit }) => {
     const [error, setError] = useState(null);
     const [venues, setVenues] = useState([]);
     const [referees, setReferees] = useState([]);
+    const [matches, setMatches] = useState([]);
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchInitialData = async () => {
             try {
                 setLoading(true);
-                const [venuesRes, refereesRes] = await Promise.all([
-                    venueService.getAllVenues(),
-                    refereeService.getAllReferees(),
-                ]);
+                setError(null);
 
-                setVenues(venuesRes.data || []);
-                setReferees(refereesRes.data || []);
+                const [venuesResponse, refereesResponse, matchesResponse] =
+                    await Promise.all([
+                        venueService.getAllVenues(),
+                        refereeService.getAllReferees(),
+                        matchService.getAvailableMatches(),
+                    ]);
+
+                setVenues(
+                    Array.isArray(venuesResponse.data)
+                        ? venuesResponse.data
+                        : [],
+                );
+                setReferees(
+                    Array.isArray(refereesResponse.data)
+                        ? refereesResponse.data
+                        : [],
+                );
+                setMatches(
+                    Array.isArray(matchesResponse.data)
+                        ? matchesResponse.data
+                        : [],
+                );
             } catch (err) {
-                console.error("Error fetching data:", err);
+                console.error("Error fetching form data:", err);
                 setError(err.message || "Failed to load form data");
+                toast.error("Failed to load form data");
             } finally {
                 setLoading(false);
             }
         };
 
         if (isOpen) {
-            fetchData();
+            fetchInitialData();
         }
     }, [isOpen]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (
-            !formData.referee ||
-            !formData.venue ||
-            !formData.appointment_date ||
-            !formData.appointment_time
-        ) {
-            toast.error("Please fill in all required fields");
-            return;
-        }
-
         try {
             setLoading(true);
-            await onSubmit(formData);
+            setError(null);
+
+            // Validate required fields
+            const requiredFields = ["referee_id", "match_id"];
+            const missingFields = requiredFields.filter(
+                (field) => !formData[field],
+            );
+
+            if (missingFields.length > 0) {
+                throw new Error(
+                    `Please fill in all required fields: ${missingFields.join(
+                        ", ",
+                    )}`,
+                );
+            }
+
+            // Find selected match to get its date and venue
+            const selectedMatch = matches.find(
+                (match) => match.match_id === formData.match_id,
+            );
+            if (!selectedMatch) {
+                throw new Error("Selected match not found");
+            }
+
+            // Submit with match data
+            const submissionData = {
+                appointment_id: formData.appointment_id,
+                referee: formData.referee_id,
+                match: formData.match_id,
+                venue: selectedMatch.venue.venue_id, // Use venue from match
+                appointment_date: selectedMatch.match_date, // Use date from match
+                appointment_time: selectedMatch.match_time, // Use time from match
+                status: "upcoming",
+            };
+
+            console.log("Submitting appointment data:", submissionData);
+
+            await onSubmit(submissionData);
             toast.success("Appointment created successfully");
             onClose();
         } catch (err) {
-            console.error("Submission error:", err);
+            console.error("Form submission error:", err);
+            setError(err.message || "Failed to create appointment");
             toast.error(err.message || "Failed to create appointment");
         } finally {
             setLoading(false);
         }
     };
 
-    if (!isOpen) return null;
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
+
+    if (loading) {
+        return <LoadingSpinner message="Loading form data..." />;
+    }
+
+    if (error) {
+        return (
+            <ErrorDisplay error={error} message="Failed to load form data" />
+        );
+    }
 
     return (
-        <Popup isOpen={isOpen} onClose={onClose} title="Create New Appointment">
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {error && (
-                    <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                        {error}
+        <Popup
+            isOpen={isOpen}
+            onClose={onClose}
+            title={
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-3 rounded-full">
+                        <PlusCircle className="w-6 h-6 text-blue-600" />
                     </div>
-                )}
+                    <h2 className="text-2xl font-semibold">
+                        Create New Appointment
+                    </h2>
+                </div>
+            }
+        >
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Match Selection */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <Flag className="w-4 h-4 inline mr-2" />
+                        Match
+                    </label>
+                    <select
+                        name="match_id"
+                        value={formData.match_id}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+                        required
+                    >
+                        <option value="">Select Match</option>
+                        {matches.map((match) => (
+                            <option key={match.match_id} value={match.match_id}>
+                                {match.home_club.club_name} vs{" "}
+                                {match.away_club.club_name} - {match.match_date}{" "}
+                                at {match.match_time}
+                            </option>
+                        ))}
+                    </select>
+                </div>
 
                 {/* Referee Selection */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Users className="w-4 h-4 inline-block mr-2" />
+                        <Users className="w-4 h-4 inline mr-2" />
                         Referee
                     </label>
                     <select
-                        value={formData.referee}
-                        onChange={(e) =>
-                            setFormData((prev) => ({
-                                ...prev,
-                                referee: e.target.value,
-                            }))
-                        }
-                        className="w-full p-2 border rounded-md"
+                        name="referee_id"
+                        value={formData.referee_id}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
                         required
                     >
                         <option value="">Select Referee</option>
@@ -118,70 +210,53 @@ const AppointmentForm = ({ isOpen, onClose, onSubmit }) => {
                     </select>
                 </div>
 
-                {/* Venue Selection */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <MapPin className="w-4 h-4 inline-block mr-2" />
-                        Venue
-                    </label>
-                    <select
-                        value={formData.venue}
-                        onChange={(e) =>
-                            setFormData((prev) => ({
-                                ...prev,
-                                venue: e.target.value,
-                            }))
-                        }
-                        className="w-full p-2 border rounded-md"
-                        required
-                    >
-                        <option value="">Select Venue</option>
-                        {venues.map((venue) => (
-                            <option key={venue.venue_id} value={venue.venue_id}>
-                                {venue.venue_name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Date and Time */}
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Calendar className="w-4 h-4 inline-block mr-2" />
-                            Date
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.appointment_date}
-                            onChange={(e) =>
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    appointment_date: e.target.value,
-                                }))
-                            }
-                            className="w-full p-2 border rounded-md"
-                            min={new Date().toISOString().split("T")[0]}
-                            required
-                        />
+                {/* Selected Match Details */}
+                {formData.match_id && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="font-medium text-gray-700 mb-2">
+                            Match Details
+                        </h3>
+                        {matches.find(
+                            (m) => m.match_id === formData.match_id,
+                        ) && (
+                            <div className="space-y-2 text-sm text-gray-600">
+                                <p>
+                                    <MapPin className="w-4 h-4 inline mr-2" />
+                                    Venue:{" "}
+                                    {
+                                        matches.find(
+                                            (m) =>
+                                                m.match_id ===
+                                                formData.match_id,
+                                        ).venue.venue_name
+                                    }
+                                </p>
+                                <p>
+                                    <Calendar className="w-4 h-4 inline mr-2" />
+                                    Date:{" "}
+                                    {
+                                        matches.find(
+                                            (m) =>
+                                                m.match_id ===
+                                                formData.match_id,
+                                        ).match_date
+                                    }
+                                </p>
+                                <p>
+                                    <Clock className="w-4 h-4 inline mr-2" />
+                                    Time:{" "}
+                                    {
+                                        matches.find(
+                                            (m) =>
+                                                m.match_id ===
+                                                formData.match_id,
+                                        ).match_time
+                                    }
+                                </p>
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            <Clock className="w-4 h-4 inline-block mr-2" />
-                            Time
-                        </label>
-                        <TimePicker
-                            value={formData.appointment_time}
-                            onChange={(value) =>
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    appointment_time: value,
-                                }))
-                            }
-                            className="w-full"
-                        />
-                    </div>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-3 pt-4 border-t">

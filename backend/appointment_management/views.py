@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 from django.core.mail import send_mail
 from django.conf import settings
 from datetime import datetime, timedelta
@@ -58,9 +58,36 @@ from .serializers import (
 @permission_classes([IsAuthenticated])
 def current_user(request):
     try:
-        referee = Referee.objects.get(user=request.user)
-        return Response(RefereeSerializer(referee).data)
+        referee = Referee.objects.select_related('user').get(user=request.user)
+        serializer = RefereeSerializer(referee)
+
+        # Add additional user data
+        data = serializer.data
+        data['is_staff'] = request.user.is_staff
+
+        # Log the final response data
+        print(f"Sending user data: {data}")
+
+        return Response(data)
+
     except Referee.DoesNotExist:
+        if request.user.is_staff:
+            # Create a referee profile for staff user if it doesn't exist
+            referee = Referee.objects.create(
+                user=request.user,
+                referee_id=f"ADMIN_{request.user.id}",
+                first_name=request.user.first_name or "Admin",
+                last_name=request.user.last_name or "User",
+                email=request.user.email,
+                level="4",
+                age=0,
+                experience_years=0,
+                location='Melbourne'
+            )
+            data = RefereeSerializer(referee).data
+            data['is_staff'] = True
+            return Response(data)
+
         return Response({
             'error': 'No referee profile found'
         }, status=status.HTTP_404_NOT_FOUND)
@@ -86,12 +113,17 @@ def login_user(request):
         token, _ = Token.objects.get_or_create(user=user)
         try:
             referee = Referee.objects.get(user=user)
+            # Include is_staff in the response
+            response_data = RefereeSerializer(referee).data
+            response_data['is_staff'] = user.is_staff
+
             return Response({
                 'token': token.key,
-                'user': RefereeSerializer(referee).data
+                'user': response_data
             })
         except Referee.DoesNotExist:
-            if user.is_superuser:
+            if user.is_staff:
+                # Create referee profile for staff
                 referee = Referee.objects.create(
                     user=user,
                     referee_id=f"ADMIN_{user.id}",
@@ -103,9 +135,12 @@ def login_user(request):
                     experience_years=0,
                     location='Melbourne'
                 )
+                response_data = RefereeSerializer(referee).data
+                response_data['is_staff'] = True
+
                 return Response({
                     'token': token.key,
-                    'user': RefereeSerializer(referee).data
+                    'user': response_data
                 })
             return Response({
                 'error': 'No referee profile found for this user'
@@ -362,27 +397,30 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
 
-    def get_queryset(self):
-        base_queryset = Appointment.objects.select_related(
-            'referee',
-            'referee__user',
-            'venue',
-            'match'
-        ).select_related(
-            'match__home_club',
-            'match__away_club'
-        )
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return AppointmentWriteSerializer
+        return AppointmentSerializer
 
-        # Filter future appointments by default
-        queryset = base_queryset.filter(
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Add date filtering
+        queryset = queryset.filter(
             appointment_date__gte=timezone.now().date()
-        ).order_by('appointment_date', 'appointment_time')
+        )
 
         # Filter by user if not staff
         if not self.request.user.is_staff:
             queryset = queryset.filter(referee__user=self.request.user)
 
-        return queryset
+        return queryset.select_related(
+            'referee',
+            'venue',
+            'match',
+            'match__home_club',
+            'match__away_club'
+    )
 
     def list(self, request, *args, **kwargs):
         try:
@@ -403,19 +441,39 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
-            return AppointmentWriteSerializer
-        return AppointmentSerializer
-
-    @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
-            return super().create(request, *args, **kwargs)
+            # Validate data
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                logger.error(f"Validation errors: {serializer.errors}")
+                return Response(
+                    {"error": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            try:
+                # Attempt to save
+                appointment = serializer.save()
+                logger.info(f"Successfully created appointment: {appointment.appointment_id}")
+
+                # Return the created appointment
+                response_serializer = AppointmentSerializer(appointment)
+                return Response(
+                    response_serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as save_error:
+                logger.error(f"Error saving appointment: {str(save_error)}", exc_info=True)
+                return Response(
+                    {"error": str(save_error)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         except Exception as e:
-            logger.error(f"Error in AppointmentViewSet.create: {str(e)}", exc_info=True)
+            logger.error(f"Unexpected error creating appointment: {str(e)}", exc_info=True)
             return Response(
-                {"error": "An error occurred while creating the appointment."},
+                {"error": "An unexpected error occurred while creating the appointment."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -494,7 +552,7 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
 
         referee_id = data.get('referee')
         date = data.get('date')
-        is_available = data.get('isAvailable')
+        available_type = data.get('availableType')
         is_general = data.get('isGeneral')
 
         # Validate required fields
@@ -510,21 +568,21 @@ class AvailabilityViewSet(viewsets.ModelViewSet):
                 'received_data': data
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if is_available is None:  # explicitly check for None as False is valid
+        if available_type not in ['A', 'U']:  # explicitly check for None as False is valid
             return Response({
-                'error': 'isAvailable is required',
+                'error': 'availableType must be "A" or "U"',
                 'received_data': data
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            availability_type = 'A' if is_available else 'U'
+            is_available = available_type == 'A'
 
             # Create or update availability
             availability, created = Availability.objects.update_or_create(
                 referee_id=referee_id,
                 date=date,
                 defaults={
-                    'availableType': availability_type,
+                    'availableType': available_type,
                     'weekday': datetime.strptime(date, '%Y-%m-%d').strftime('%a') if not is_general else None,
                 }
             )
@@ -728,3 +786,89 @@ class TeamViewSet(viewsets.ModelViewSet):
         return Response({
             'error': 'No home venue assigned'
         }, status=status.HTTP_404_NOT_FOUND)
+
+class MatchViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Match.objects.all()
+    serializer_class = MatchSerializer
+
+    # Base queryset with related fields
+    def get_queryset(self):
+        return Match.objects.select_related(
+            'home_club',
+            'away_club',
+            'venue'
+        ).filter(
+            match_date__gte=timezone.now().date()
+        ).order_by('match_date', 'match_time')
+
+    # Get matches that don't have appointments yet
+    @action(detail=False)
+    def available(self, request):
+        try:
+            # Get matches that don't have any appointments
+            matches = self.get_queryset().filter(
+                ~Q(appointment__isnull=False)  # No appointment exists
+            )
+
+            # Add optional filters
+            level = request.query_params.get('level')
+            if level:
+                matches = matches.filter(level=level)
+
+            venue_id = request.query_params.get('venue')
+            if venue_id:
+                matches = matches.filter(venue_id=venue_id)
+
+            date = request.query_params.get('date')
+            if date:
+                matches = matches.filter(match_date=date)
+
+            serializer = self.get_serializer(matches, many=True)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error fetching available matches: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Failed to fetch available matches"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # Get matches for a specific venue
+    @action(detail=False)
+    def by_venue(self, request, venue_id=None):
+        try:
+            matches = self.get_queryset().filter(venue_id=venue_id)
+            serializer = self.get_serializer(matches, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error fetching venue matches: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Failed to fetch venue matches"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    # Get matches within a date range
+    @action(detail=False)
+    def date_range(self, request):
+        try:
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+
+            if not start_date or not end_date:
+                return Response(
+                    {"error": "Both start_date and end_date are required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            matches = self.get_queryset().filter(
+                match_date__range=[start_date, end_date]
+            )
+            serializer = self.get_serializer(matches, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error fetching matches by date range: {str(e)}", exc_info=True)
+            return Response(
+                {"error": "Failed to fetch matches for date range"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

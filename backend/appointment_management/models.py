@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class PasswordReset(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -13,10 +14,10 @@ class Appointment(models.Model):
     appointment_id = models.CharField(primary_key=True, max_length=50)
     referee = models.ForeignKey('Referee', models.DO_NOTHING)
     venue = models.ForeignKey('Venue', models.DO_NOTHING)
-    match = models.ForeignKey('Match', models.DO_NOTHING)
-    distance = models.FloatField()
-    appointment_date = models.DateField()
-    appointment_time = models.TimeField(null=True)
+    match = models.ForeignKey('Match', models.DO_NOTHING, null=True, blank=True)
+    distance = models.FloatField(default=0)
+    appointment_date = models.DateField(default=timezone.now)
+    appointment_time = models.TimeField(default=timezone.now)
     upcoming = "upcoming"
     ongoing = "ongoing"
     complete = "complete"
@@ -27,15 +28,18 @@ class Appointment(models.Model):
         (complete, "Complete"),
         (cancelled, "Cancelled"),
     ]
-    status = models.CharField(max_length=10, choices=game_status, default=upcoming, db_index=True)
+    status = models.CharField(
+        max_length=10,
+        choices=game_status,
+        default=upcoming
+    )
 
     class Meta:
         managed = True
         db_table = 'Appointment'
-        indexes = [
-            models.Index(fields=['appointment_date', 'appointment_time']),
-            models.Index(fields=['referee', 'status']),
-        ]
+
+    def __str__(self):
+        return f"{self.appointment_id} - {self.appointment_date}"
 
 class Availability(models.Model):
     main_days = [

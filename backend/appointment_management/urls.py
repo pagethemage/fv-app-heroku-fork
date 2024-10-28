@@ -4,6 +4,7 @@ from . import views
 
 router = DefaultRouter()
 router.register(r'appointments', views.AppointmentViewSet, basename='appointment')
+router.register(r'matches', views.MatchViewSet, basename='match')
 router.register(r'referee', views.RefereeViewSet)
 router.register(r'availability', views.AvailabilityViewSet, basename='availability')
 router.register(r'venues', views.VenueViewSet)

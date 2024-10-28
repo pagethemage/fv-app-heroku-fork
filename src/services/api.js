@@ -20,9 +20,37 @@ export const authService = {
 
 // Referee endpoints
 export const refereeService = {
-    getRefereeProfile: (id) => api.get(`/referee/${id}/`),
+    getRefereeProfile: async (id) => {
+        try {
+            const response = await api.get(`/referee/${id}/`);
+            return response.data;
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error ||
+                    "Failed to fetch referee profile",
+            );
+        }
+    },
     updateRefereeProfile: (id, data) => api.put(`/referee/${id}/`, data),
-    getAllReferees: () => api.get("/referee/"),
+    getAllReferees: async () => {
+        try {
+            const response = await api.get("/referee/");
+
+            // Ensure we always return an array
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            console.error("Error fetching referees:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch referees",
+            );
+        }
+    },
     getRefereesByFilters: (filters) => {
         const params = new URLSearchParams();
 
@@ -40,8 +68,6 @@ export const refereeService = {
 export const appointmentService = {
     getAllAppointments: async (page = 1) => {
         try {
-            console.log("Fetching appointments for page:", page);
-
             const response = await api.get("/appointments/", {
                 params: {
                     page,
@@ -50,13 +76,6 @@ export const appointmentService = {
                 },
                 timeout: 15000, // 15 seconds
             });
-
-            console.log("Raw appointment response:", response);
-
-            // Check if we got a valid response
-            if (!response.data) {
-                throw new Error("No data received from server");
-            }
 
             // Handle both paginated and non-paginated responses
             const appointments = response.data.results || response.data;
@@ -73,24 +92,10 @@ export const appointmentService = {
                 },
             };
         } catch (error) {
-            console.error("Detailed appointment fetch error:", {
-                error,
-                response: error.response,
-                request: error.request,
-                config: error.config,
-            });
-
-            if (error.code === "ECONNABORTED") {
-                throw new Error("Request timed out. Please try again.");
-            }
-
-            const errorMessage =
-                error.response?.data?.error ||
-                error.response?.data?.message ||
-                error.message ||
-                "Failed to fetch appointments";
-
-            throw new Error(errorMessage);
+            console.error("Appointment fetch error:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch appointments",
+            );
         }
     },
 
@@ -106,15 +111,52 @@ export const appointmentService = {
         }
     },
 
-    createAppointment: async (data) => {
+    createAppointment: async (appointmentData) => {
         try {
-            const response = await api.post("/appointments/", data);
-            return response;
+            // Format data for submission
+            const formattedData = {
+                appointment_id: appointmentData.appointment_id,
+                referee: appointmentData.referee,
+                venue: appointmentData.venue,
+                match: appointmentData.match || undefined,
+                appointment_date: appointmentData.appointment_date,
+                appointment_time: appointmentData.appointment_time.includes(':') ?
+                    appointmentData.appointment_time :
+                    `${appointmentData.appointment_time}:00`,
+                status: 'upcoming',
+                distance: appointmentData.distance || 0
+            };
+
+            console.log('Submitting appointment data:', formattedData);
+
+            const response = await api.post("/appointments/", formattedData);
+            return response.data;
         } catch (error) {
-            console.error("Appointment creation error:", error);
-            throw new Error(
-                error.response?.data?.error || "Failed to create appointment",
-            );
+            console.error('Appointment creation error:', error);
+            console.error('Error response:', error.response?.data);
+
+            // Handle different error formats
+            let errorMessage = 'Failed to create appointment';
+
+            if (error.response?.data?.error) {
+                const errorData = error.response.data.error;
+
+                if (typeof errorData === 'string') {
+                    errorMessage = errorData;
+                } else if (typeof errorData === 'object') {
+                    // Handle nested error objects
+                    errorMessage = Object.entries(errorData)
+                        .map(([field, errors]) => {
+                            const errorText = Array.isArray(errors) ? errors.join(', ') : errors;
+                            return `${field}: ${errorText}`;
+                        })
+                        .join('\n');
+                }
+            } else if (error.response?.status === 500) {
+                errorMessage = 'Internal server error. Please try again later.';
+            }
+
+            throw new Error(errorMessage);
         }
     },
 
@@ -131,10 +173,8 @@ export const appointmentService = {
 
     deleteAppointment: async (id) => {
         try {
-            const response = await api.delete(`/appointments/${id}/`);
-            return response;
+            await api.delete(`/appointments/${id}/`);
         } catch (error) {
-            console.error("Appointment deletion error:", error);
             throw new Error(
                 error.response?.data?.error || "Failed to delete appointment",
             );
@@ -159,8 +199,35 @@ export const availabilityService = {
 
 // Venue endpoints
 export const venueService = {
-    getAllVenues: () => api.get("/venues/"),
-    getVenue: (id) => api.get(`/venues/${id}/`),
+    getAllVenues: async () => {
+        try {
+            const response = await api.get("/venues/");
+
+            // Ensure we always return an array
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            console.error("Error fetching venues:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch venues",
+            );
+        }
+    },
+    getVenue: async (id) => {
+        try {
+            const response = await api.get(`/venues/${id}/`);
+            return response.data;
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch venue",
+            );
+        }
+    },
     createVenue: (data) => api.post("/venues/", data),
     updateVenue: (id, data) => api.put(`/venues/${id}/`, data),
     deleteVenue: (id) => api.delete(`/venues/${id}/`),
@@ -212,3 +279,96 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+export const matchService = {
+    getAllMatches: async () => {
+        try {
+            const response = await api.get("/matches/");
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            console.error("Error fetching matches:", error);
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch matches",
+            );
+        }
+    },
+
+    getMatch: async (id) => {
+        try {
+            const response = await api.get(`/matches/${id}/`);
+            return response.data;
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch match details",
+            );
+        }
+    },
+
+    // Get matches that don't have appointments yet
+    getAvailableMatches: async () => {
+        try {
+            const response = await api.get("/matches/available/");
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            console.error("Error fetching available matches:", error);
+            throw new Error(
+                error.response?.data?.error ||
+                    "Failed to fetch available matches",
+            );
+        }
+    },
+
+    // Get matches for a specific venue
+    getMatchesByVenue: async (venueId) => {
+        try {
+            const response = await api.get(`/matches/venue/${venueId}/`);
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error || "Failed to fetch venue matches",
+            );
+        }
+    },
+
+    // Get matches for a specific date range
+    getMatchesByDateRange: async (startDate, endDate) => {
+        try {
+            const response = await api.get("/matches/", {
+                params: {
+                    start_date: startDate,
+                    end_date: endDate,
+                },
+            });
+            return {
+                data: Array.isArray(response.data)
+                    ? response.data
+                    : response.data?.results
+                    ? response.data.results
+                    : [],
+            };
+        } catch (error) {
+            throw new Error(
+                error.response?.data?.error ||
+                    "Failed to fetch matches for date range",
+            );
+        }
+    },
+};
