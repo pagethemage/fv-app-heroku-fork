@@ -7,48 +7,42 @@ const geocodeCache = new Map();
 export const geocodeAddress = async (address) => {
     if (!address) return null;
 
-    // Check cache first
-    const cachedResult = geocodeCache.get(address);
-    if (cachedResult) {
-        return cachedResult;
-    }
-
     try {
-        // Ensure Google Maps is loaded
-        await loadGoogleMapsScript();
-
-        const response = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-                address,
-            )}&components=country:AU&key=${
-                process.env.REACT_APP_GOOGLE_MAPS_API_KEY
-            }`,
-        );
-
-        if (!response.ok) {
-            throw new Error(`Geocoding failed: ${response.status}`);
+        // Check if Google Maps is loaded
+        if (!window.google?.maps?.Geocoder) {
+            throw new Error("Google Maps Geocoder not loaded");
         }
 
-        const data = await response.json();
+        const geocoder = new window.google.maps.Geocoder();
 
-        if (data.status === "OK" && data.results.length > 0) {
-            const result = data.results[0];
-            const geocodeResult = {
-                coordinates: result.geometry.location,
-                formattedAddress: result.formatted_address,
-                placeId: result.place_id,
-                addressComponents: result.address_components,
-            };
+        const result = await new Promise((resolve, reject) => {
+            geocoder.geocode(
+               {
+                    address,
+                    componentRestrictions: {
+                       country: "AU", // Restrict to Australia
+                    },
+                },
+                (results, status) => {
+                    if (status === "OK" && results?.[0]) {
+                        resolve(results[0]);
+                    } else {
+                        reject(new Error(`Geocoding failed: ${status}`));
+                    }
+                },
+            );
+        });
 
-            // Cache the result
-            geocodeCache.set(address, geocodeResult);
-            return geocodeResult;
-        } else {
-            console.error("Geocoding failed:", data.status);
-            return null;
-        }
+        return {
+            coordinates: {
+                lat: result.geometry.location.lat(),
+                lng: result.geometry.location.lng(),
+            },
+            formattedAddress: result.formatted_address,
+            placeId: result.place_id,
+        };
     } catch (error) {
-        console.error("Error geocoding address:", error);
+        console.error("Geocoding error for address:", address, error);
         return null;
     }
 };
