@@ -79,7 +79,7 @@ WSGI_APPLICATION = "fv_backend.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
-        'NAME': 'AFL Victoria',
+        'NAME': 'AFL Victoria_2024-10-27T09-03Z',
         'USER': 'aflvic',
         'PASSWORD': 'Nga123456@',
         'HOST': 'afl-victoria-sql.database.windows.net',
@@ -203,3 +203,8 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+
+
+
