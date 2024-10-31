@@ -298,8 +298,8 @@ const MatchDetails = ({ match, isOpen, onClose }) => {
                             <>
                                 <div
                                     ref={mapRef}
-                                    className="w-full h-[300px]" // Fixed height
-                                    style={{ minHeight: "300px" }} // Ensure minimum height
+                                    className="w-full h-[300px]"
+                                    style={{ minHeight: "300px" }}
                                 />
                                 <div className="p-4 border-t">
                                     <div className="flex items-center gap-2 mb-3">
@@ -320,7 +320,7 @@ const MatchDetails = ({ match, isOpen, onClose }) => {
                                             );
                                         }}
                                     >
-                                        <Map className="w-4 h-4 mr-2" />
+                                        <Map className="w-full h-4" />
                                         Open in Google Maps
                                     </Button>
                                 </div>
