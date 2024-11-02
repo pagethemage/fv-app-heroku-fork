@@ -8,7 +8,6 @@ import {
     teamService,
 } from "../services/api";
 import {
-    getGoogleMaps,
     isGoogleMapsLoaded,
 } from "../utils/loadGoogleMapsScript";
 
