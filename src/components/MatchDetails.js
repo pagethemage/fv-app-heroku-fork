@@ -14,15 +14,13 @@ import {
 } from "../utils/loadGoogleMapsScript";
 
 const MatchDetails = ({ match, isOpen, onClose }) => {
-    const [matchDetails, setMatchDetails] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [setMatchDetails] = useState(null);
+    const [setLoading] = useState(true);
+    const [setError] = useState(null);
     const [updating, setUpdating] = useState(false);
     const [showDeclineForm, setShowDeclineForm] = useState(false);
     const [declineReason, setDeclineReason] = useState("");
     const [mapLoaded, setMapLoaded] = useState(false);
-    const [mapError, setMapError] = useState(null);
-    const [map, setMap] = useState(null);
 
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
