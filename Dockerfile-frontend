@@ -1,5 +1,8 @@
 FROM node:14
 
+
+ENV CI=false
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -17,7 +20,7 @@ ENV REACT_APP_API_BASE_URL=http://localhost:8000/api
 RUN npm run build
 
 
-RUN CI=false npm install -g serve
+RUN npm install -g serve
 
 EXPOSE 3000
 
