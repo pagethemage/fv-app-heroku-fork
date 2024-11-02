@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Calendar, Clock, MapPin, Phone, Users, Trophy } from "lucide-react";
+import { Calendar, MapPin, Phone, Users, Trophy } from "lucide-react";
 import Button from "../components/Button";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Popup from "../components/Popup";
-import { teamService } from "../services/api";
 
 const TeamDetailsModal = ({ team, onClose }) => {
-    const [matches, setMatches] = useState({ home: [], away: [] });
+    const [setMatches] = useState({ home: [], away: [] });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState("overview");
