@@ -30,6 +30,9 @@ RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
     && ACCEPT_EULA=Y apt-get install -y msodbcsql17 \
     && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /app
+
+
 COPY backend-requirements.txt .
 RUN python -m pip install --upgrade pip setuptools wheel
 RUN pip install gunicorn
@@ -39,7 +42,6 @@ RUN pip install pyngrok
 RUN pip install APScheduler
 RUN pip install requests
 
-WORKDIR /app
 COPY backend .
 
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
