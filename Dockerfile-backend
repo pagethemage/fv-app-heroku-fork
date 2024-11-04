@@ -1,5 +1,6 @@
 ## Base image
 FROM python:3.11-slim
+WORKDIR /app
 
 
 
@@ -43,9 +44,7 @@ RUN pip install pyngrok
 RUN pip install APScheduler
 RUN pip install requests
 
-WORKDIR /app
-COPY backend .
-COPY . .
+COPY backend/ .
 
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
