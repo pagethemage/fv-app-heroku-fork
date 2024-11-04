@@ -28,6 +28,7 @@ ALLOWED_HOSTS = [
     ".ngrok.app",
     "localhost",
     "127.0.0.1",
+    "https://fv-app-heroku-fork-production.up.railway.app",
 ]
 
 # Application definition
