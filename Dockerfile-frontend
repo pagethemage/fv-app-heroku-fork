@@ -15,7 +15,7 @@ COPY src ./src
 COPY public ./public
 
 ENV REACT_APP_GOOGLE_MAPS_API_KEY=##
-ENV REACT_APP_API_BASE_URL=http://localhost:8000/api 
+ENV REACT_APP_API_BASE_URL=https://fv-app-heroku-fork-production.up.railway.app
 
 RUN npm run fix
 RUN npm run build
