@@ -1,4 +1,4 @@
-# Base image
+## Base image
 FROM python:3.11-slim
 
 EXPOSE 8000
@@ -6,9 +6,12 @@ EXPOSE 8000
 # EXPOSE 3001
 # EXPOSE 4040
 
-ENV PYTHONDONTWRITEBYTECODE=1
+## PYTHONDONTWRITEBYTECODE: supposed to improve performance 
+ENV PYTHONDONTWRITEBYTECODE=1 
+## forces logging generation for debugging.
 ENV PYTHONUNBUFFERED=1
 
+## install core dependencies for dockerised python runtime environment
 RUN apt-get update && apt-get install -y \
     python3-dev \
     build-essential \
@@ -18,6 +21,9 @@ RUN apt-get update && apt-get install -y \
     unixodbc \
     && rm -rf /var/lib/apt/lists/*
 
+## dependencies for fixing pyodbc broken wheel issue
+## (seems to have been fixed by using older Python image
+## but I'm keeping them here anyway just in case)
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - \
     && curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
@@ -33,11 +39,10 @@ RUN pip install pyngrok
 RUN pip install APScheduler
 RUN pip install requests
 
-WORKDIR /app/backend
-COPY backend /app/backend
+WORKDIR /app
+COPY backend .
 
 RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "fv_backend.wsgi"]
-
